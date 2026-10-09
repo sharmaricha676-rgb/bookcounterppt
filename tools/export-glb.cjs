@@ -30,6 +30,10 @@ const out = path.join(root, 'assets', 'book-counter.glb');
     const model = B.deviceRoot.clone(true);
     model.position.set(0, 0, 0);
     model.scale.setScalar(0.01); // the scene is in centimetres, glTF is in metres
+    model.updateMatrixWorld(true);
+    // centre the model on the origin so PowerPoint (and any viewer) rotates it about its middle
+    const centre = new THREE.Box3().setFromObject(model).getCenter(new THREE.Vector3());
+    model.position.sub(centre);
     model.traverse(o => {
       o.userData = {};
       if (o.isLineSegments) o.visible = false;                                         // dimension lines
