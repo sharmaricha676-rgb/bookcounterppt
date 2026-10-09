@@ -1,0 +1,1815 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Book Counter</title>
+<meta name="description" content="Interactive 3D presentation of Book Counter, a 3D-printed bookmark that counts the pages you turn.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,500..800&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&family=Silkscreen&display=swap">
+<style>
+:root{
+  /* Layout: full-bleed 3D stage under everything; slide copy in a left rail (a bottom sheet on phones); slide strip along the bottom edge.
+     One deliberate look: a desk at night under a reading lamp, lit by the OLED's blue pixels. */
+  --ink:#0c1118;        /* the desk at night, the page background */
+  --ink-2:#131b26;      /* raised surfaces */
+  --ink-3:#1b2533;      /* wells: code, tables */
+  --line:#2a3647;       /* hairlines */
+  --paper:#ece6d9;      /* main text, the colour of book paper */
+  --muted:#9ba5b5;      /* secondary text */
+  --oled:#86d6ff;       /* accent: an SSD1306 pixel */
+  --ir:#ff6479;         /* sensor signal only */
+  --panel:rgba(15,22,32,.86);
+  --font-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --font-body:"Literata",Georgia,"Times New Roman",serif;
+  --font-pixel:"Silkscreen","Courier New",monospace;
+  --font-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --nav-h:64px;
+  color-scheme:dark;
+}
+html{box-sizing:border-box;height:100%;background:var(--ink)}
+*,*::before,*::after{box-sizing:inherit}
+body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(--paper);font:16px/1.55 var(--font-body);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+[hidden]{display:none!important}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--oled);outline-offset:2px}
+
+#app{position:relative;height:100%;overflow:hidden;isolation:isolate}
+.stage{position:absolute;inset:0;z-index:0}
+.stage canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab;outline:none}
+.stage canvas.dragging{cursor:grabbing}
+.stage canvas.pointing{cursor:pointer}
+.labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+
+/* ---------- top bar ---------- */
+.top{position:absolute;z-index:4;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px clamp(16px,2.2vw,32px) 0;pointer-events:none}
+.top>*{pointer-events:auto}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--font-pixel);font-size:.82rem;letter-spacing:.08em;text-transform:uppercase;color:var(--paper);white-space:nowrap}
+.brand-mark{width:18px;height:11px;border:1.5px solid var(--oled);border-radius:2px;box-shadow:0 0 10px rgba(134,214,255,.45),inset 0 0 0 2px var(--ink);background:linear-gradient(var(--oled),var(--oled)) 3px 3px/6px 2px no-repeat}
+.tools{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.tool{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:var(--panel);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);cursor:pointer;font-family:var(--font-display);font-size:.78rem;font-weight:600;letter-spacing:.02em;color:var(--muted);transition:color .15s,border-color .15s,background .15s}
+.tool svg{width:17px;height:17px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tool:hover{color:var(--paper);border-color:#3b4a60}
+.tool[aria-pressed="true"]{color:var(--ink);background:var(--oled);border-color:var(--oled)}
+
+/* ---------- slide panel ---------- */
+.panel{position:absolute;z-index:3;left:clamp(16px,2.2vw,32px);top:72px;bottom:calc(var(--nav-h) + 20px);width:min(440px,36vw);display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:14px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);overflow:hidden}
+.panel-body{flex:1;min-height:0;overflow-y:auto;padding:28px 28px 26px;display:flex;flex-direction:column;gap:16px;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.panel-body>*{margin:0;min-width:0;flex-shrink:0}
+.panel-body.enter-next{animation:enterNext .5s cubic-bezier(.2,.7,.2,1)}
+.panel-body.enter-prev{animation:enterPrev .5s cubic-bezier(.2,.7,.2,1)}
+@keyframes enterNext{from{opacity:.15;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes enterPrev{from{opacity:.15;transform:translateY(-12px)}to{opacity:1;transform:none}}
+
+.eyebrow{font-family:var(--font-display);font-size:.72rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--oled)}
+.title{font-family:var(--font-display);font-stretch:125%;font-weight:800;font-size:clamp(1.75rem,1.1rem + 1.5vw,2.55rem);line-height:1.04;letter-spacing:-.01em;text-wrap:balance;color:var(--paper)}
+.title-xl{font-size:clamp(2.6rem,1.4rem + 3.4vw,4.4rem);line-height:.95;text-transform:uppercase;letter-spacing:-.005em}
+.title-l{font-size:clamp(2.3rem,1.3rem + 2.4vw,3.5rem);line-height:1}
+.lede{font-size:1.08rem;line-height:1.55;color:var(--paper)}
+.panel-body p{max-width:62ch}
+.panel-body b{font-weight:600}
+.note{font-size:.86rem;line-height:1.5;color:var(--muted)}
+.by{font-family:var(--font-display);font-weight:600;font-size:.9rem;color:var(--muted);letter-spacing:.02em}
+kbd{font-family:var(--font-mono);font-size:.78em;padding:1px 6px;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;background:var(--ink-3);color:var(--paper)}
+
+.chips{display:flex;flex-wrap:wrap;gap:8px;padding:0;list-style:none}
+.chips li{display:flex;align-items:baseline;gap:7px;padding:7px 12px;border:1px solid var(--line);border-radius:8px;font-family:var(--font-display);font-size:.82rem;font-weight:600;color:var(--muted)}
+.chips b{font-family:var(--font-pixel);font-weight:400;font-size:1rem;color:var(--oled)}
+
+.list{padding-left:1.15em;display:flex;flex-direction:column;gap:8px}
+.list li::marker{color:var(--oled)}
+.steps{list-style:none;padding:0;display:flex;flex-direction:column;gap:12px;counter-reset:step}
+.steps li{display:grid;grid-template-columns:28px 1fr;gap:12px;align-items:baseline;counter-increment:step}
+.steps li::before{content:counter(step);font-family:var(--font-pixel);font-size:.9rem;color:var(--ink);background:var(--oled);border-radius:4px;text-align:center;line-height:24px;height:24px}
+
+.parts{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.part-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:baseline;width:100%;padding:11px 4px;border:0;border-bottom:1px solid var(--line);background:none;text-align:left;cursor:pointer;transition:background .15s}
+.part-row:hover{background:rgba(134,214,255,.06)}
+.part-row[aria-pressed="true"]{background:rgba(134,214,255,.12)}
+.part-row strong{font-family:var(--font-display);font-weight:700;font-size:.95rem;color:var(--paper)}
+.part-row span{grid-column:1 / -1;font-size:.88rem;color:var(--muted)}
+.part-row em{font-style:normal;font-family:var(--font-display);font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--oled)}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:0 16px;border:1px solid var(--line);border-radius:9px;background:var(--ink-3);cursor:pointer;font-family:var(--font-display);font-weight:700;font-size:.88rem;letter-spacing:.01em;color:var(--paper);transition:background .15s,border-color .15s,transform .08s}
+.btn:hover{border-color:#41526a}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--oled);border-color:var(--oled);color:var(--ink)}
+.btn.primary:hover{background:#a3e1ff}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+
+.demo{display:flex;flex-direction:column;gap:12px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--ink-2)}
+.readout{display:flex;align-items:center;gap:14px}
+.readout .pix{font-family:var(--font-pixel);font-size:2.6rem;line-height:1;color:var(--oled);text-shadow:0 0 14px rgba(134,214,255,.45);font-variant-numeric:tabular-nums}
+.readout span:last-child{font-family:var(--font-display);font-size:.78rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.demo-buttons{display:grid;grid-template-columns:1fr 1.4fr;gap:8px}
+.scope{display:block;width:100%;height:104px;border-radius:8px;background:var(--ink);border:1px solid var(--line)}
+
+.code{margin:0;padding:12px 14px;overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--ink-3);font-family:var(--font-mono);font-size:.74rem;line-height:1.5;color:var(--paper);tab-size:2}
+.code .c{color:#7f8b9d}
+.code .k{color:var(--oled)}
+
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+.pins{width:100%;border-collapse:collapse;font-size:.86rem;font-variant-numeric:tabular-nums}
+.pins th{font-family:var(--font-display);font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:left;padding:9px 12px;background:var(--ink-3)}
+.pins td{padding:8px 12px;border-top:1px solid var(--line)}
+.pins td:last-child{font-family:var(--font-mono);font-size:.82rem;color:var(--oled);white-space:nowrap}
+
+.facts{display:grid;gap:0;margin:0;border-top:1px solid var(--line)}
+.facts div{display:grid;grid-template-columns:118px minmax(0,1fr);gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.facts dt{font-family:var(--font-display);font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding-top:3px}
+.facts dd{margin:0}
+.facts dd.num{font-family:var(--font-pixel);color:var(--oled);font-size:.95rem}
+
+.pairs{display:flex;flex-direction:column;gap:10px}
+.pair{display:grid;grid-template-columns:minmax(0,1fr);gap:4px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--ink-2)}
+.pair p{margin:0}
+.pair .q{color:var(--paper);font-weight:600}
+.pair .a{color:var(--muted);font-size:.92rem}
+.pair .a::before{content:"Fix  ";font-family:var(--font-display);font-size:.68rem;font-weight:800;letter-spacing:.12em;color:var(--oled)}
+
+.big{font-family:var(--font-pixel);font-size:3.4rem;line-height:1;color:var(--oled);text-shadow:0 0 18px rgba(134,214,255,.4)}
+
+/* ---------- part card ---------- */
+.card{position:absolute;z-index:5;right:clamp(16px,2.2vw,32px);bottom:calc(var(--nav-h) + 20px);width:min(330px,calc(100% - 32px));padding:18px 18px 16px;background:var(--panel);border:1px solid var(--line);border-radius:14px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);display:flex;flex-direction:column;gap:8px;box-shadow:0 18px 40px rgba(0,0,0,.35)}
+.card>*{margin:0}
+.card-name{font-family:var(--font-display);font-stretch:112%;font-weight:800;font-size:1.25rem;line-height:1.15;padding-right:28px}
+.card-spec{font-family:var(--font-mono);font-size:.76rem;color:var(--oled)}
+.card-text{font-size:.92rem;color:var(--paper)}
+.card-actions{display:flex;gap:8px;flex-wrap:wrap;padding-top:4px}
+.card-actions .btn{min-height:36px;font-size:.8rem;padding:0 12px}
+.card-x{position:absolute;top:10px;right:10px;width:30px;height:30px;border:0;border-radius:8px;background:none;color:var(--muted);font-size:1.3rem;line-height:1;cursor:pointer}
+.card-x:hover{color:var(--paper);background:var(--ink-3)}
+
+/* ---------- 3D-anchored tags ---------- */
+.tag{position:absolute;left:0;top:0;width:0;height:0;pointer-events:none;will-change:transform}
+.tag-dot{position:absolute;left:-5px;top:-5px;width:10px;height:10px;border-radius:50%;background:var(--oled);box-shadow:0 0 0 3px rgba(134,214,255,.25),0 0 12px rgba(134,214,255,.6)}
+.tag::before{content:"";position:absolute;left:3px;top:-3px;width:20px;height:1px;background:var(--oled);transform-origin:0 50%;transform:rotate(-45deg);opacity:.8}
+.tag-text{position:absolute;left:16px;bottom:13px;white-space:nowrap;pointer-events:auto;cursor:pointer;padding:4px 9px;border:1px solid rgba(134,214,255,.55);border-radius:6px;background:rgba(12,17,24,.85);font-family:var(--font-display);font-size:.74rem;font-weight:700;letter-spacing:.03em;color:var(--paper)}
+.tag-text:hover,.tag.on .tag-text{background:var(--oled);color:var(--ink)}
+.tag.down::before{transform:rotate(45deg);top:2px}
+.tag.down .tag-text{bottom:auto;top:12px}
+.tag.dim::before,.tag.dim .tag-dot{display:none}
+.tag.dim .tag-text{left:0;bottom:auto;top:0;transform:translate(-50%,-50%);pointer-events:none;font-family:var(--font-pixel);font-weight:400;font-size:.72rem;color:var(--oled);border-color:rgba(134,214,255,.4)}
+.tip{position:absolute;z-index:6;left:0;top:0;pointer-events:none;padding:4px 9px;border-radius:6px;background:var(--paper);color:var(--ink);font-family:var(--font-display);font-size:.74rem;font-weight:700;white-space:nowrap;transform:translate(14px,14px)}
+
+/* ---------- bottom nav ---------- */
+.nav{position:absolute;z-index:4;left:0;right:0;bottom:0;height:calc(var(--nav-h) + env(safe-area-inset-bottom,0px));padding:0 clamp(16px,2.2vw,32px) env(safe-area-inset-bottom,0px);display:flex;align-items:center;gap:14px;background:linear-gradient(to top,rgba(12,17,24,.92) 30%,rgba(12,17,24,0))}
+.nav-btn{flex:none;width:42px;height:42px;display:grid;place-items:center;border:1px solid var(--line);border-radius:50%;background:var(--panel);cursor:pointer;color:var(--paper);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.nav-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.nav-btn:hover{border-color:var(--oled);color:var(--oled)}
+.nav-btn[disabled]{opacity:.35;cursor:default;border-color:var(--line);color:var(--paper)}
+.segs{flex:1;min-width:0;display:flex;gap:4px;align-items:center}
+.seg{flex:1;min-width:0;height:28px;padding:0;border:0;background:none;cursor:pointer;position:relative}
+.seg::after{content:"";position:absolute;left:0;right:0;top:50%;height:3px;margin-top:-1.5px;border-radius:2px;background:var(--line);transition:background .2s,height .2s}
+.seg:hover::after{background:#46566e}
+.seg.done::after{background:rgba(134,214,255,.45)}
+.seg[aria-current="step"]::after{background:var(--oled);height:5px;margin-top:-2.5px;box-shadow:0 0 10px rgba(134,214,255,.6)}
+.count{flex:none;font-family:var(--font-pixel);font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums;min-width:58px;text-align:center}
+.count b{color:var(--paper);font-weight:400}
+.hint{position:absolute;z-index:2;right:clamp(16px,2.2vw,32px);bottom:calc(var(--nav-h) + 24px);margin:0;font-family:var(--font-display);font-size:.74rem;font-weight:600;letter-spacing:.04em;color:var(--muted);transition:opacity .6s}
+.hint.gone{opacity:0}
+
+/* ---------- overlays ---------- */
+.loading{position:absolute;inset:0;z-index:10;display:grid;place-content:center;gap:10px;text-align:center;background:var(--ink);transition:opacity .6s}
+.loading.done{opacity:0;pointer-events:none}
+.loading .pix{font-family:var(--font-pixel);font-size:1.3rem;letter-spacing:.08em;color:var(--oled);margin:0;text-shadow:0 0 16px rgba(134,214,255,.5)}
+.loading p{margin:0;color:var(--muted);max-width:42ch;padding:0 16px}
+.help{position:absolute;inset:0;z-index:9;display:grid;place-items:center;padding:16px;background:rgba(6,9,13,.7);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.help-box{width:min(460px,100%);max-height:100%;overflow:auto;padding:24px;border:1px solid var(--line);border-radius:14px;background:var(--ink-2);display:flex;flex-direction:column;gap:14px}
+.help-box h2{margin:0;font-family:var(--font-display);font-stretch:112%;font-weight:800;font-size:1.3rem}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:9px 16px;margin:0;align-items:baseline}
+.keys dt{white-space:nowrap}
+.keys dd{margin:0;color:var(--muted);font-size:.92rem}
+
+/* ---------- phones and narrow windows ---------- */
+@media (max-width:820px){
+  :root{--nav-h:56px;--stage-h:50%}
+  .stage{bottom:auto;height:var(--stage-h)}
+  .top{padding-top:10px}
+  .brand span:last-child{display:none}
+  .tool{width:36px;padding:0;justify-content:center}
+  .tool span{display:none}
+  .panel{left:0;right:0;width:auto;top:var(--stage-h);bottom:calc(var(--nav-h) + env(safe-area-inset-bottom,0px));border-radius:16px 16px 0 0;border-left:0;border-right:0;border-bottom:0}
+  .panel-body{padding:20px 16px 18px;gap:13px}
+  .title-xl{font-size:2.5rem}
+  .card{top:auto;bottom:calc(100% - var(--stage-h) + 10px);right:16px;left:16px;width:auto;padding:14px}
+  .card-text{font-size:.86rem}
+  .hint{bottom:10px;right:16px}
+  .nav{gap:8px}
+  .count{min-width:48px}
+  .tag-text{font-size:.68rem;padding:3px 7px}
+  .tag:not(.dim):not(.on) .tag-text,.tag:not(.dim):not(.on)::before{display:none}
+  .tag-dot{pointer-events:auto;cursor:pointer;width:14px;height:14px;left:-7px;top:-7px}
+  .tag-dot::after{content:"";position:absolute;inset:-12px}
+}
+@media (prefers-reduced-motion:reduce){
+  .panel-body.enter-next,.panel-body.enter-prev{animation:none}
+  *{transition-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="stage" id="stage">
+    <canvas id="gl" tabindex="-1" aria-label="3D model of the Book Counter bookmark. Drag to rotate, scroll to zoom, click a part for details."></canvas>
+    <div class="labels" id="labels"></div>
+    <p class="hint" id="hint">Drag to rotate · Scroll to zoom · Click a part</p>
+  </div>
+
+  <header class="top">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"></span><span>Book Counter</span></div>
+    <div class="tools" role="toolbar" aria-label="Model controls">
+      <button class="tool" id="tExplode" aria-pressed="false" title="Open the shell (E)"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="13" width="14" height="7" rx="1.5"/><path d="M5 9.5h14"/><path d="M12 7V2.5M9.5 5 12 2.5 14.5 5"/></svg><span>Explode</span></button>
+      <button class="tool" id="tXray" aria-pressed="false" title="See through the shell (X)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span>X-ray</span></button>
+      <button class="tool" id="tSpin" aria-pressed="false" title="Turntable (S)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg><span>Spin</span></button>
+      <button class="tool" id="tReset" title="Back to this slide's view (R)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg><span>Reset view</span></button>
+      <button class="tool" id="tFull" title="Full screen (F)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span>Full screen</span></button>
+      <button class="tool" id="tHelp" title="Keyboard shortcuts (?)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.4c-.6.3-1 .8-1 1.5v.4"/><path d="M12 17h.01"/></svg><span>Keys</span></button>
+    </div>
+  </header>
+
+  <aside class="panel" id="panel" aria-label="Slide">
+    <div class="panel-body" id="panelBody"></div>
+  </aside>
+
+  <section class="card" id="card" hidden aria-label="Part details">
+    <button class="card-x" id="cardX" aria-label="Close part details">×</button>
+    <p class="eyebrow">Part</p>
+    <h3 class="card-name" id="cardName"></h3>
+    <p class="card-spec" id="cardSpec"></p>
+    <p class="card-text" id="cardText"></p>
+    <div class="card-actions" id="cardActions"></div>
+  </section>
+
+  <nav class="nav" aria-label="Slides">
+    <button class="nav-btn" id="prev" aria-label="Previous slide"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <div class="segs" id="segs"></div>
+    <span class="count" id="count"><b>01</b> / 12</span>
+    <button class="nav-btn" id="next" aria-label="Next slide"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+  </nav>
+
+  <div class="tip" id="tip" hidden></div>
+
+  <div class="help" id="help" hidden role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+    <div class="help-box">
+      <h2 id="helpTitle">Keyboard shortcuts</h2>
+      <dl class="keys">
+        <dt><kbd>→</kbd> <kbd>Space</kbd></dt><dd>Next slide (clickers work too)</dd>
+        <dt><kbd>←</kbd></dt><dd>Previous slide</dd>
+        <dt><kbd>Home</kbd> <kbd>End</kbd></dt><dd>First or last slide</dd>
+        <dt><kbd>T</kbd> / <kbd>B</kbd></dt><dd>Turn a page forward or back (when the book is out)</dd>
+        <dt><kbd>E</kbd></dt><dd>Open or close the shell</dd>
+        <dt><kbd>X</kbd></dt><dd>See through the shell</dd>
+        <dt><kbd>S</kbd></dt><dd>Turntable on or off</dd>
+        <dt><kbd>R</kbd></dt><dd>Reset the camera for this slide</dd>
+        <dt><kbd>F</kbd></dt><dd>Full screen</dd>
+        <dt><kbd>Esc</kbd></dt><dd>Close this or the part card</dd>
+      </dl>
+      <p class="note">Mouse: drag to rotate, scroll to zoom, click any part. Touch: drag, pinch, tap.</p>
+      <button class="btn" id="helpClose">Close</button>
+    </div>
+  </div>
+
+  <div class="loading" id="loading">
+    <p class="pix">BOOK COUNTER</p>
+    <p id="loadMsg">Loading the 3D model…</p>
+  </div>
+</div>
+
+<!-- three.js r128: CDN first, bundled copy in /vendor when offline -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>window.THREE || document.write('<script src="vendor/three.min.js"><\/script>');</script>
+<script>
+(function () {
+'use strict';
+
+/* =====================================================================
+   EDIT ME: facts about your build.
+   The slides, the part cards and the 3D model all read from here.
+   ===================================================================== */
+const CONFIG = {
+  presenters: '',                      // e.g. 'Rishi Sharma · Class 10-B' (shown on the first and last slide)
+  sizeMM: { w: 105, d: 60, h: 35 },    // outer size of the printed shell; the model is built from these
+  material: 'PLA',
+  mcu: 'Arduino Nano',
+  mcuChip: 'ATmega328P',
+  battery: '9 V battery',
+  display: '0.96″ OLED · 128 × 64 px · SSD1306 · I²C',
+  sensor: 'IR obstacle module (FC-51) · LM393',
+  lockoutMs: 400,                      // a new hit within this time after a count is ignored
+  startPage: 42,                       // the demo book opens here (left page, even)
+  wiring: [                            // [part, its pin, Arduino pin]
+    ['IR sensor, left', 'OUT', 'D2'],
+    ['IR sensor, right', 'OUT', 'D3'],
+    ['Both IR sensors', 'VCC · GND', '5V · GND'],
+    ['OLED display', 'SDA · SCL', 'A4 · A5'],
+    ['OLED display', 'VCC · GND', '5V · GND'],
+    ['Reset button', 'leg 1 · leg 2', 'D4 · GND'],
+    ['Battery (via switch)', '+ · −', 'VIN · GND'],
+  ],
+};
+
+const MM = CONFIG.sizeMM;
+const PARTS = {
+  shell:   { name: '3D-printed shell', spec: `${CONFIG.material} · ${MM.w} × ${MM.d} × ${MM.h} mm`, text: 'A base tray and a top plate. The plate has cut-outs for the screen, the reset button and the two sensor cables. BOOK COUNTER is embossed on the front.' },
+  oled:    { name: 'OLED display', spec: CONFIG.display, text: 'Shows the running page count. It needs only two data wires, SDA and SCL, to the microcontroller.' },
+  sensorL: { name: 'IR sensor, left', spec: CONFIG.sensor, text: 'Watches the left side of the book. When you read forward, it sees the page second, as the page lands.' },
+  sensorR: { name: 'IR sensor, right', spec: CONFIG.sensor, text: 'Watches the right side of the book. When you read forward, it sees the page first, as you lift it.' },
+  mcu:     { name: 'Microcontroller', spec: `${CONFIG.mcu} · ${CONFIG.mcuChip}`, text: 'Reads both sensors, works out which way the page went, keeps the count and draws it on the screen.' },
+  battery: { name: 'Battery', spec: CONFIG.battery, text: 'Powers the bookmark so it works away from a computer.' },
+  button:  { name: 'Reset button', spec: '6 mm push button', text: 'Press it to set the count back to zero at the start of a reading session.' },
+  power:   { name: 'Power switch', spec: 'Slide switch', text: 'Disconnects the battery when the bookmark is not in use.' },
+  wires:   { name: 'Jumper wires', spec: 'Dupont leads, 22 AWG', text: 'Carry power and the two sensor signals into the shell, and link the screen and button to the board.' },
+};
+
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const presentersHTML = CONFIG.presenters ? `<p class="by">${esc(CONFIG.presenters)}</p>` : '';
+const partRow = (id, role, extra) => `<button class="part-row" data-part="${id}" aria-pressed="false"><strong>${esc(PARTS[id].name)}</strong>${extra ? `<em>${extra}</em>` : ''}<span>${role}</span></button>`;
+
+/* =====================================================================
+   SLIDES. view = camera preset; the flags set up the 3D scene.
+   ===================================================================== */
+const SLIDES = [
+  {
+    nav: 'Title', view: 'hero', spin: true,
+    html: `
+      <p class="eyebrow">3D-printed smart bookmark</p>
+      <h1 class="title title-xl">Book<br>Counter</h1>
+      <p class="lede">A bookmark that counts every page you turn and shows the total on its own screen.</p>
+      <ul class="chips"><li><b>2</b>IR sensors</li><li><b>0.96″</b>OLED screen</li><li><b>1</b>printed shell</li></ul>
+      ${presentersHTML}
+      <p class="note">Press <kbd>→</kbd> to begin. Drag the model to turn it, scroll to zoom, click any part.</p>`,
+  },
+  {
+    nav: 'The problem', view: 'wide', book: true,
+    html: `
+      <p class="eyebrow">Why we built it</p>
+      <h2 class="title">Paper books keep no score</h2>
+      <p class="lede">An e-reader knows exactly how far you got. A paper book doesn’t, so tracking your reading means remembering page numbers and doing the maths yourself.</p>
+      <ul class="list">
+        <li>Reading goals need numbers: pages a day, pages a week.</li>
+        <li>Writing page numbers down by hand is easy to forget.</li>
+        <li>Reading apps still make you type in every session.</li>
+      </ul>
+      <p>Book Counter does the counting while you read. Nothing to type, nothing to remember.</p>`,
+  },
+  {
+    nav: 'The device', view: 'device', labels: ['oled', 'button', 'shell', 'sensorL', 'sensorR'],
+    html: `
+      <p class="eyebrow">The device</p>
+      <h2 class="title">Two eyes, one screen</h2>
+      <p class="lede">A white printed shell rides at the top of the book. Everything you can see from the outside has one job.</p>
+      <div class="parts">
+        ${partRow('oled', 'Shows the live page count')}
+        ${partRow('sensorR', 'One on each side, watching the pages move', '×2')}
+        ${partRow('button', 'Starts a new reading session at zero')}
+        ${partRow('shell', 'Holds everything, name embossed on the front')}
+      </div>
+      <p class="note">Click a row, or click the part on the model.</p>`,
+  },
+  {
+    nav: 'Inside', view: 'inside', explode: 1, labels: ['lid', 'oled', 'button', 'mcu', 'battery', 'power'],
+    html: `
+      <p class="eyebrow">Inside the shell</p>
+      <h2 class="title">What’s inside</h2>
+      <p class="lede">Lift off the top plate and the parts come apart. Four things do the real work.</p>
+      <div class="parts">
+        ${partRow('mcu', 'The brain: reads, decides, counts')}
+        ${partRow('oled', 'Mounted under the window in the top plate')}
+        ${partRow('battery', 'Power for a whole reading session')}
+        ${partRow('wires', 'Sensor cables enter through two ports')}
+      </div>
+      <p class="note">The <kbd>E</kbd> key or the Explode button opens the shell on any slide.</p>`,
+  },
+  {
+    nav: 'The sensor', view: 'sensor', book: true, beams: true, labels: ['sensorR'],
+    html: `
+      <p class="eyebrow">Sensing</p>
+      <h2 class="title">How an IR sensor sees a page</h2>
+      <ol class="steps">
+        <li><span><b>Send.</b> The clear LED gives off infrared light, which our eyes can’t see. Red here shows where it goes.</span></li>
+        <li><span><b>Reflect.</b> A page that moves into the beam bounces the light back.</span></li>
+        <li><span><b>Receive.</b> The dark photodiode next to it picks up the reflection.</span></li>
+        <li><span><b>Decide.</b> The LM393 chip turns that into a clean ON or OFF, and the green LED on the board lights up.</span></li>
+      </ol>
+      <p class="note">The blue trimmer on each board sets how close a page must come before it counts.</p>
+      <button class="btn primary" data-action="turn">Turn a page to test it</button>`,
+  },
+  {
+    nav: 'Live demo', view: 'demo', book: true, beams: true,
+    html: `
+      <p class="eyebrow">Live demo</p>
+      <h2 class="title">Turn a page, watch it count</h2>
+      <p class="lede">A turning page sweeps past both sensors. Right then left means you read on. Left then right means you flipped back.</p>
+      <div class="demo">
+        <div class="readout"><span class="pix" data-bind="count3">000</span><span>pages<br>turned</span></div>
+        <div class="demo-buttons">
+          <button class="btn" data-action="back">◂ Flip back</button>
+          <button class="btn primary" data-action="turn">Turn page ▸</button>
+        </div>
+        <canvas class="scope" data-widget="scope" aria-label="Signals from the right and left sensors over the last six seconds"></canvas>
+      </div>
+      <p class="note">Shortcuts: <kbd>T</kbd> turns a page, <kbd>B</kbd> flips back. The trace shows each sensor going ON as the page passes.</p>`,
+  },
+  {
+    nav: 'The logic', view: 'oled', book: true, beams: true,
+    html: `
+      <p class="eyebrow">Firmware</p>
+      <h2 class="title">The counting logic</h2>
+      <p class="lede">The board checks both sensors hundreds of times a second. The order of the two hits gives the direction. A short lock-out stops double counts.</p>
+      <pre class="code"><code><span class="k">void</span> loop() {
+  <span class="c">// LOW means "something is in front of me"</span>
+  <span class="k">bool</span> right = digitalRead(IR_RIGHT) == LOW;
+  <span class="k">bool</span> left  = digitalRead(IR_LEFT)  == LOW;
+  <span class="k">if</span> (right &amp;&amp; !wasRight) hit('R');
+  <span class="k">if</span> (left  &amp;&amp; !wasLeft)  hit('L');
+  wasRight = right;  wasLeft = left;
+}
+
+<span class="k">void</span> hit(<span class="k">char</span> side) {
+  <span class="c">// one page can only count once</span>
+  <span class="k">if</span> (millis() - lastCount &lt; LOCKOUT_MS) <span class="k">return</span>;
+  <span class="k">if</span> (armed &amp;&amp; armed != side) {
+    <span class="c">// R then L = forward, L then R = back</span>
+    pages += (armed == 'R') ? 1 : -1;
+    <span class="k">if</span> (pages &lt; 0) pages = 0;
+    lastCount = millis();  armed = 0;
+    showCount(pages);
+  } <span class="k">else</span> {
+    armed = side;  <span class="c">// wait for the other sensor</span>
+  }
+}</code></pre>
+      <p class="note">Simplified for the slide. Press <kbd>T</kbd> and watch the screen: the arrow shows the direction it decided on. LOCKOUT_MS is ${CONFIG.lockoutMs} ms.</p>`,
+  },
+  {
+    nav: 'Wiring', view: 'wiring', explode: 1, labels: ['mcu', 'oled', 'battery', 'button', 'power'],
+    html: `
+      <p class="eyebrow">Circuit</p>
+      <h2 class="title">Wiring</h2>
+      <p class="lede">Everything plugs into the microcontroller. Each sensor needs one digital pin. The screen shares the two-wire I²C bus.</p>
+      <div class="table-wrap"><table class="pins">
+        <thead><tr><th scope="col">Part</th><th scope="col">Pin</th><th scope="col">Arduino</th></tr></thead>
+        <tbody>${CONFIG.wiring.map(r => `<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`).join('')}</tbody>
+      </table></div>
+      <p class="note">The sensors sit on D2 and D3, the two pins on a Nano that can also wake the board with an interrupt.</p>`,
+  },
+  {
+    nav: 'Design & build', view: 'design', dims: true,
+    html: `
+      <p class="eyebrow">Build</p>
+      <h2 class="title">Designed and 3D-printed</h2>
+      <p class="lede">We modelled the shell around the parts, then printed it in two pieces so the electronics drop in from the top.</p>
+      <dl class="facts">
+        <div><dt>Outer size</dt><dd class="num">${MM.w} × ${MM.d} × ${MM.h} mm</dd></div>
+        <div><dt>Material</dt><dd>${esc(CONFIG.material)}, white</dd></div>
+        <div><dt>Pieces</dt><dd>Base tray and top plate</dd></div>
+        <div><dt>Openings</dt><dd>Screen window, button hole, two cable ports</dd></div>
+        <div><dt>Lettering</dt><dd>BOOK COUNTER, embossed on the front wall</dd></div>
+      </dl>
+      <p class="note">Zoom in on the walls: the fine horizontal ridges are the printer’s layer lines.</p>`,
+  },
+  {
+    nav: 'Challenges', view: 'side', book: true, beams: true,
+    html: `
+      <p class="eyebrow">Design challenges</p>
+      <h2 class="title">What a page counter has to get right</h2>
+      <div class="pairs">
+        <div class="pair"><p class="q">One page could count twice.</p><p class="a">A ${CONFIG.lockoutMs} ms lock-out after every count.</p></div>
+        <div class="pair"><p class="q">Flipping back must not add pages.</p><p class="a">Two sensors. The order of the hits gives the direction.</p></div>
+        <div class="pair"><p class="q">Room light and the page underneath reflect IR too.</p><p class="a">Each trimmer is tuned for a short range, and the sensors aim at the path a turning page takes.</p></div>
+        <div class="pair"><p class="q">Pages are thin and curl as they turn.</p><p class="a">The sensors watch the top edge, where every page passes the same way.</p></div>
+      </div>`,
+  },
+  {
+    nav: 'Next version', view: 'hero2', spin: true,
+    html: `
+      <p class="eyebrow">Next version</p>
+      <h2 class="title">Where it goes next</h2>
+      <ul class="list">
+        <li><b>Bluetooth sync.</b> Send each session to a phone app with daily and weekly graphs.</li>
+        <li><b>Reading speed.</b> Pages per minute, right on the screen.</li>
+        <li><b>Rechargeable.</b> A small lithium cell with USB-C charging.</li>
+        <li><b>Smaller.</b> A custom circuit board so the sensor arms fold flat.</li>
+        <li><b>Fits any book.</b> An adjustable clip for thin paperbacks and thick textbooks.</li>
+      </ul>`,
+  },
+  {
+    nav: 'Thank you', view: 'hero', spin: true,
+    html: `
+      <p class="eyebrow">Thank you</p>
+      <h2 class="title title-l">Questions?</h2>
+      <p class="lede">Book Counter counts the pages so you don’t have to.</p>
+      <div class="readout"><span class="big" data-bind="count">0</span><span>pages turned<br>during this talk</span></div>
+      ${presentersHTML}`,
+  },
+];
+
+/* ---------- helpers ---------- */
+const $ = (s, el) => (el || document).querySelector(s);
+const $$ = (s, el) => Array.from((el || document).querySelectorAll(s));
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const easeInOut = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+const approach = (cur, target, rate, dt) => lerp(cur, target, 1 - Math.exp(-rate * dt));
+let reduceMotion = false;
+try { reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { /* ignore */ }
+
+const loadingEl = $('#loading');
+if (!window.THREE) {
+  $('#loadMsg').textContent = 'The 3D engine did not load. Connect to the internet, or open the copy of this folder that includes vendor/three.min.js.';
+  return;
+}
+const V3 = THREE.Vector3, V2 = THREE.Vector2;
+const col = hex => new THREE.Color(hex).convertSRGBToLinear();
+const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/* =====================================================================
+   RENDERER, CAMERA, LIGHT
+   ===================================================================== */
+const stageEl = $('#stage');
+const canvas = $('#gl');
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: false });
+} catch (e) {
+  $('#loadMsg').textContent = 'This browser could not start WebGL, which the 3D model needs. Try Chrome, Edge, Firefox or Safari with hardware acceleration on.';
+  return;
+}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.08;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setClearColor(new THREE.Color(cssVar('--ink') || '#0c1118'), 1);
+const ANISO = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(32, 1, 0.5, 400);
+
+(function buildEnvironment() {
+  const env = new THREE.Scene();
+  env.add(new THREE.Mesh(new THREE.BoxGeometry(220, 140, 220), new THREE.MeshBasicMaterial({ color: 0x0a0e15, side: THREE.BackSide })));
+  const panel = (w, h, hex, k, x, y, z) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(k), side: THREE.DoubleSide }));
+    m.position.set(x, y, z); m.lookAt(0, 0, 0); env.add(m);
+  };
+  panel(60, 46, 0xffd6a6, 2.4, -50, 60, 40);   // the reading lamp
+  panel(80, 26, 0x9cc0ff, 0.8, 60, 34, -60);   // cool window light behind
+  panel(160, 14, 0xffffff, 0.45, 0, 68, 0);    // ceiling
+  panel(90, 10, 0xffe2c4, 0.35, 0, 8, 100);    // soft bounce in front
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(env, 0.035).texture;
+  pmrem.dispose();
+})();
+
+scene.add(new THREE.HemisphereLight(col('#b4c8e6'), col('#0b0f16'), 0.42));
+const lamp = new THREE.SpotLight(col('#ffd4a3'), 1.6, 0, 0.44, 0.8, 1);
+lamp.position.set(-26, 54, 28);
+lamp.target.position.set(0, 2, -9);
+lamp.castShadow = true;
+lamp.shadow.mapSize.set(2048, 2048);
+lamp.shadow.bias = -0.0003;
+lamp.shadow.normalBias = 0.02;
+lamp.shadow.camera.near = 30;
+lamp.shadow.camera.far = 120;
+scene.add(lamp, lamp.target);
+const rim = new THREE.DirectionalLight(col('#8db4ff'), 0.55);
+rim.position.set(30, 22, -48);
+scene.add(rim);
+
+/* =====================================================================
+   TEXTURES (all drawn in code, nothing to download)
+   ===================================================================== */
+function makeCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+function canvasTex(c, srgb) {
+  const t = new THREE.CanvasTexture(c);
+  if (srgb !== false) t.encoding = THREE.sRGBEncoding;
+  t.anisotropy = ANISO;
+  return t;
+}
+function heightToNormal(hgt, w, h, strength, wrap) {
+  const c = makeCanvas(w, h), ctx = c.getContext('2d'), img = ctx.createImageData(w, h), d = img.data;
+  const at = (x, y) => {
+    if (wrap) { x = ((x % w) + w) % w; y = ((y % h) + h) % h; } else { x = clamp(x, 0, w - 1); y = clamp(y, 0, h - 1); }
+    return hgt[y * w + x];
+  };
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const nx = -(at(x + 1, y) - at(x - 1, y)) * strength;
+      const ny = (at(x, y + 1) - at(x, y - 1)) * strength;
+      const l = Math.hypot(nx, ny, 1), i = (y * w + x) * 4;
+      d[i] = (nx / l * 0.5 + 0.5) * 255; d[i + 1] = (ny / l * 0.5 + 0.5) * 255; d[i + 2] = (1 / l * 0.5 + 0.5) * 255; d[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return c;
+}
+function boxBlur(src, w, h, r) {
+  const tmp = new Float32Array(w * h), out = new Float32Array(w * h), n = 2 * r + 1;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let s = 0; for (let k = -r; k <= r; k++) s += src[y * w + clamp(x + k, 0, w - 1)];
+    tmp[y * w + x] = s / n;
+  }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let s = 0; for (let k = -r; k <= r; k++) s += tmp[clamp(y + k, 0, h - 1) * w + x];
+    out[y * w + x] = s / n;
+  }
+  return out;
+}
+/* FDM print texture: layer lines on the walls, diagonal top-layer lines on flat faces */
+function ridgeNormal(size, periods, diagonal, strength) {
+  const hgt = new Float32Array(size * size);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const p = diagonal ? x + y : y;
+    hgt[y * size + x] = 0.5 + 0.5 * Math.cos(2 * Math.PI * p * periods / size);
+  }
+  const t = canvasTex(heightToNormal(hgt, size, size, strength, true), false);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+}
+const layerNormal = ridgeNormal(64, 8, false, 1.4); layerNormal.repeat.set(1, 2.4);
+const infillNormal = ridgeNormal(64, 8, true, 1.0); infillNormal.repeat.set(1.6, 1.6);
+
+const deskAlpha = (() => {
+  const c = makeCanvas(256, 256), x = c.getContext('2d');
+  const g = x.createRadialGradient(128, 128, 30, 128, 128, 128);
+  g.addColorStop(0, '#fff'); g.addColorStop(0.55, '#fff'); g.addColorStop(1, '#000');
+  x.fillStyle = g; x.fillRect(0, 0, 256, 256);
+  return canvasTex(c, false);
+})();
+const deskGrain = (() => {
+  const c = makeCanvas(512, 512), x = c.getContext('2d'), rnd = mulberry32(7);
+  x.fillStyle = '#273246'; x.fillRect(0, 0, 512, 512);
+  for (let i = 0; i < 900; i++) {
+    const y = rnd() * 512, l = 40 + rnd() * 220, x0 = rnd() * 512;
+    x.strokeStyle = rnd() > 0.5 ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.06)';
+    x.lineWidth = 0.6 + rnd() * 1.4;
+    x.beginPath(); x.moveTo(x0, y); x.bezierCurveTo(x0 + l * 0.3, y + rnd() * 3, x0 + l * 0.6, y - rnd() * 3, x0 + l, y); x.stroke();
+  }
+  const t = canvasTex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 3);
+  return t;
+})();
+
+/* silkscreened PCB for the IR modules: 1.4 × 3.2 cm, header at the top */
+function sensorPcbCanvas() {
+  const c = makeCanvas(140, 320), x = c.getContext('2d');
+  x.fillStyle = '#1c4fae'; x.fillRect(0, 0, 140, 320);
+  x.strokeStyle = 'rgba(110,165,255,0.35)'; x.lineWidth = 3; x.lineJoin = 'round';
+  [[[45, 8], [45, 60], [62, 78]], [[70, 8], [70, 50], [98, 70]], [[95, 8], [95, 40], [118, 60], [118, 105]],
+   [[62, 100], [40, 125], [40, 140]], [[100, 100], [110, 160], [100, 290]], [[40, 180], [28, 230], [36, 300]]].forEach(p => {
+    x.beginPath(); x.moveTo(p[0][0], p[0][1]); p.slice(1).forEach(q => x.lineTo(q[0], q[1])); x.stroke();
+  });
+  x.fillStyle = '#e9eef8'; x.font = 'bold 10px Arial, sans-serif'; x.textAlign = 'center';
+  x.fillText('VCC', 45, 34); x.fillText('GND', 70, 34); x.fillText('OUT', 95, 34);
+  x.strokeStyle = '#e9eef8'; x.lineWidth = 1.5;
+  x.strokeRect(54, 58, 56, 44);            // LM393 outline
+  x.strokeRect(10, 118, 72, 72);           // trimmer outline
+  x.strokeRect(100, 100, 30, 46);          // LEDs
+  x.fillText('IR', 118, 175);
+  x.font = 'bold 9px Arial, sans-serif'; x.fillText('FC-51', 70, 262);
+  x.beginPath(); x.arc(70, 226, 15, 0, Math.PI * 2); x.fillStyle = '#cfae55'; x.fill();
+  x.beginPath(); x.arc(70, 226, 8, 0, Math.PI * 2); x.fillStyle = '#0c1118'; x.fill();
+  x.fillStyle = '#cfae55'; [36, 104].forEach(px => { x.fillRect(px - 9, 300, 18, 14); });
+  return c;
+}
+/* Arduino Nano top: 4.3 × 1.8 cm, USB at the left */
+const NANO_FRONT = ['D12', 'D11', 'D10', 'D9', 'D8', 'D7', 'D6', 'D5', 'D4', 'D3', 'D2', 'GND', 'RST', 'RX0', 'TX1'];
+const NANO_BACK = ['D13', '3V3', 'REF', 'A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', '5V', 'RST', 'GND', 'VIN'];
+function nanoCanvas() {
+  const c = makeCanvas(430, 180), x = c.getContext('2d');
+  x.fillStyle = '#1d56b8'; x.fillRect(0, 0, 430, 180);
+  x.font = 'bold 8px Arial, sans-serif'; x.textAlign = 'center';
+  for (let i = 0; i < 15; i++) {
+    const px = (-1.78 + i * 0.254 + 2.15) * 100;
+    [[16, NANO_BACK[i], 34], [164, NANO_FRONT[i], 152]].forEach(([py, label, ly]) => {
+      x.beginPath(); x.arc(px, py, 7, 0, Math.PI * 2); x.fillStyle = '#d6b65c'; x.fill();
+      x.beginPath(); x.arc(px, py, 3.2, 0, Math.PI * 2); x.fillStyle = '#121418'; x.fill();
+      x.save(); x.translate(px, ly); x.rotate(-Math.PI / 2); x.fillStyle = '#eef2fa'; x.fillText(label, 0, 3); x.restore();
+    });
+  }
+  x.fillStyle = '#eef2fa'; x.font = 'bold 20px Arial, sans-serif'; x.fillText('NANO', 330, 98);
+  x.font = '9px Arial, sans-serif'; x.fillText('V3.0', 330, 112);
+  return c;
+}
+function batteryCanvas() {
+  const c = makeCanvas(480, 260), x = c.getContext('2d');
+  x.fillStyle = '#25282e'; x.fillRect(0, 0, 480, 260);
+  x.fillStyle = '#c47c3c'; x.fillRect(0, 0, 150, 260);
+  x.fillStyle = '#f3efe6'; x.font = 'bold 92px Arial, sans-serif'; x.textAlign = 'left'; x.fillText('9V', 196, 160);
+  x.font = 'bold 22px Arial, sans-serif'; x.fillText('ALKALINE', 200, 200);
+  x.fillStyle = '#1b1d22'; x.font = 'bold 26px Arial, sans-serif'; x.save(); x.translate(84, 130); x.rotate(-Math.PI / 2); x.textAlign = 'center'; x.fillText('+  POWER', 0, 9); x.restore();
+  return c;
+}
+
+/* ---------- OLED: a real 128 × 64 framebuffer drawn with a 5 × 7 pixel font ---------- */
+const GLYPHS = {
+  ' ': ['.....', '.....', '.....', '.....', '.....', '.....', '.....'],
+  '0': ['.###.', '#...#', '#..##', '#.#.#', '##..#', '#...#', '.###.'],
+  '1': ['..#..', '.##..', '..#..', '..#..', '..#..', '..#..', '.###.'],
+  '2': ['.###.', '#...#', '....#', '...#.', '..#..', '.#...', '#####'],
+  '3': ['#####', '...#.', '..#..', '...#.', '....#', '#...#', '.###.'],
+  '4': ['...#.', '..##.', '.#.#.', '#..#.', '#####', '...#.', '...#.'],
+  '5': ['#####', '#....', '####.', '....#', '....#', '#...#', '.###.'],
+  '6': ['..##.', '.#...', '#....', '####.', '#...#', '#...#', '.###.'],
+  '7': ['#####', '....#', '...#.', '..#..', '.#...', '.#...', '.#...'],
+  '8': ['.###.', '#...#', '#...#', '.###.', '#...#', '#...#', '.###.'],
+  '9': ['.###.', '#...#', '#...#', '.####', '....#', '...#.', '.##..'],
+  'A': ['.###.', '#...#', '#...#', '#####', '#...#', '#...#', '#...#'],
+  'B': ['####.', '#...#', '#...#', '####.', '#...#', '#...#', '####.'],
+  'C': ['.###.', '#...#', '#....', '#....', '#....', '#...#', '.###.'],
+  'D': ['###..', '#..#.', '#...#', '#...#', '#...#', '#..#.', '###..'],
+  'E': ['#####', '#....', '#....', '####.', '#....', '#....', '#####'],
+  'G': ['.###.', '#...#', '#....', '#.###', '#...#', '#...#', '.####'],
+  'K': ['#...#', '#..#.', '#.#..', '##...', '#.#..', '#..#.', '#...#'],
+  'L': ['#....', '#....', '#....', '#....', '#....', '#....', '#####'],
+  'N': ['#...#', '#...#', '##..#', '#.#.#', '#..##', '#...#', '#...#'],
+  'O': ['.###.', '#...#', '#...#', '#...#', '#...#', '#...#', '.###.'],
+  'P': ['####.', '#...#', '#...#', '####.', '#....', '#....', '#....'],
+  'R': ['####.', '#...#', '#...#', '####.', '#.#..', '#..#.', '#...#'],
+  'S': ['.####', '#....', '#....', '.###.', '....#', '....#', '####.'],
+  'T': ['#####', '..#..', '..#..', '..#..', '..#..', '..#..', '..#..'],
+  'U': ['#...#', '#...#', '#...#', '#...#', '#...#', '#...#', '.###.'],
+  'Y': ['#...#', '#...#', '.#.#.', '..#..', '..#..', '..#..', '..#..'],
+  '>': ['.#...', '..#..', '...#.', '....#', '...#.', '..#..', '.#...'],
+  '<': ['...#.', '..#..', '.#...', '#....', '.#...', '..#..', '...#.'],
+};
+const oledCanvas = makeCanvas(128, 64);
+const oledCtx = oledCanvas.getContext('2d');
+const oledTex = canvasTex(oledCanvas);
+oledTex.magFilter = THREE.NearestFilter;
+oledTex.minFilter = THREE.LinearFilter;
+oledTex.generateMipmaps = false;
+const OLED_ON = '#9adfff';
+function oledText(str, x0, y0, s, color) {
+  oledCtx.fillStyle = color || OLED_ON;
+  for (const ch of str) {
+    const g = GLYPHS[ch] || GLYPHS[' '];
+    for (let r = 0; r < 7; r++) for (let c = 0; c < 5; c++) if (g[r][c] === '#') oledCtx.fillRect(x0 + c * s, y0 + r * s, s, s);
+    x0 += 6 * s;
+  }
+}
+const textWidth = (str, s) => str.length * 6 * s - s;
+function oledBox(letter, x, y, on) {
+  oledCtx.fillStyle = OLED_ON;
+  if (on) { oledCtx.fillRect(x, y, 11, 11); oledText(letter, x + 3, y + 2, 1, '#000'); }
+  else { oledCtx.fillRect(x, y, 11, 1); oledCtx.fillRect(x, y + 10, 11, 1); oledCtx.fillRect(x, y, 1, 11); oledCtx.fillRect(x + 10, y, 1, 11); oledText(letter, x + 3, y + 2, 1); }
+}
+let oledKey = '';
+function drawOLED(now) {
+  const flash = now < fw.flashUntil ? fw.flashDir : 0;
+  const reset = now < fw.resetUntil;
+  const key = [fw.pages, sensors.r, sensors.l, flash, reset].join('|');
+  if (key === oledKey) return;
+  oledKey = key;
+  oledCtx.fillStyle = '#000'; oledCtx.fillRect(0, 0, 128, 64);
+  oledText('BOOK COUNTER', Math.round((128 - textWidth('BOOK COUNTER', 1)) / 2), 1, 1);
+  oledCtx.fillStyle = OLED_ON; oledCtx.fillRect(0, 10, 128, 1);
+  if (reset) {
+    oledText('RESET', Math.round((128 - textWidth('RESET', 3)) / 2), 20, 3);
+  } else {
+    const s = String(fw.pages).padStart(3, '0'), sc = s.length > 3 ? 3 : 4;
+    oledText(s, Math.round((128 - textWidth(s, sc)) / 2), 15, sc);
+  }
+  oledText('PAGES', 1, 55, 1);
+  if (flash) oledText(flash > 0 ? '>>' : '<<', 48, 55, 1);
+  oledBox('L', 101, 52, sensors.l);
+  oledBox('R', 116, 52, sensors.r);
+  oledTex.needsUpdate = true;
+}
+
+/* ---------- book pages ---------- */
+const PAGE_CW = 600, PAGE_CH = 880;
+function drawPage(c, num, side) {
+  const x = c.getContext('2d'), w = c.width, h = c.height, rnd = mulberry32(num * 7919 + 13);
+  x.setTransform(1, 0, 0, 1, 0, 0);
+  x.fillStyle = '#f3eee2'; x.fillRect(0, 0, w, h);
+  const gutterLeft = side === 'R';
+  const g = x.createLinearGradient(gutterLeft ? 0 : w, 0, gutterLeft ? 90 : w - 90, 0);
+  g.addColorStop(0, 'rgba(70,52,30,0.30)'); g.addColorStop(1, 'rgba(70,52,30,0)');
+  x.fillStyle = g; x.fillRect(0, 0, w, h);
+  const mIn = 78, mOut = 58, top = 96, bottom = h - 112;
+  const x0 = gutterLeft ? mIn : mOut, x1 = gutterLeft ? w - mOut : w - mIn;
+  x.fillStyle = '#8c877b'; x.font = '600 15px Archivo, Arial, sans-serif'; x.textAlign = 'center';
+  x.fillText(side === 'L' ? 'THE LONG READ' : 'CHAPTER ' + (Math.floor(num / 24) + 1), (x0 + x1) / 2, 56);
+  let y = top;
+  if (num % 24 === 3) {
+    x.fillStyle = '#4f4b43'; x.font = '600 34px Literata, Georgia, serif';
+    x.fillText('Chapter ' + (Math.floor(num / 24) + 1), (x0 + x1) / 2, top + 70);
+    y = top + 140;
+  }
+  x.fillStyle = '#a49e91';
+  while (y < bottom) {
+    const lines = 3 + Math.floor(rnd() * 6);
+    for (let i = 0; i < lines && y < bottom; i++) {
+      const end = i === lines - 1 ? x0 + (x1 - x0) * (0.25 + rnd() * 0.6) : x1;
+      let xx = x0 + (i === 0 ? 28 : 0);
+      while (xx < end - 8) { const e = Math.min(xx + 12 + rnd() * 48, end); x.fillRect(xx, y, e - xx, 7); xx = e + 8; }
+      y += 23;
+    }
+    y += 12;
+  }
+  x.fillStyle = '#4f4b43'; x.font = 'italic 26px Literata, Georgia, serif';
+  x.textAlign = gutterLeft ? 'right' : 'left';
+  x.fillText(String(num), gutterLeft ? w - mOut : mOut, h - 52);
+}
+const edgeTex = (() => {
+  const c = makeCanvas(8, 128), x = c.getContext('2d');
+  x.fillStyle = '#ece5d4'; x.fillRect(0, 0, 8, 128);
+  for (let y = 0; y < 128; y += 3) { x.fillStyle = y % 6 ? '#d9cfba' : '#cfc4ad'; x.fillRect(0, y, 8, 1); }
+  const t = canvasTex(c); t.wrapT = THREE.RepeatWrapping; t.repeat.set(1, 2);
+  return t;
+})();
+
+/* =====================================================================
+   MATERIALS
+   ===================================================================== */
+const std = (hex, rough, metal, extra) => new THREE.MeshStandardMaterial(Object.assign({ color: col(hex), roughness: rough, metalness: metal || 0 }, extra || {}));
+const M = {
+  plaCap: std('#f3f1ec', 0.6, 0, { normalMap: infillNormal, normalScale: new V2(0.2, 0.2), envMapIntensity: 0.55 }),
+  plaSide: std('#f3f1ec', 0.62, 0, { normalMap: layerNormal, normalScale: new V2(0.32, 0.32), envMapIntensity: 0.55 }),
+  black: std('#17191d', 0.5),
+  blackGloss: std('#0b0d10', 0.18),
+  metal: std('#cfd3d8', 0.3, 1),
+  gold: std('#d8b65e', 0.28, 1),
+  pcbEdge: std('#173f8e', 0.5),
+  pcbFace: std('#ffffff', 0.42, 0, { map: canvasTex(sensorPcbCanvas()) }),
+  pcbBack: std('#1c4fae', 0.5),
+  potBlue: std('#2f73e6', 0.42),
+  potScrew: std('#f1ebdc', 0.35),
+  nanoTop: std('#ffffff', 0.42, 0, { map: canvasTex(nanoCanvas()) }),
+  nanoEdge: std('#184a9f', 0.5),
+  oledPcb: std('#1f4aa8', 0.5),
+  glass: new THREE.MeshPhysicalMaterial({ color: col('#05080c'), roughness: 0.08, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.05 }),
+  screen: new THREE.MeshBasicMaterial({ map: oledTex, toneMapped: false }),
+  ledClear: new THREE.MeshPhysicalMaterial({ color: col('#dfe9f4'), roughness: 0.06, metalness: 0, clearcoat: 1, transparent: true, opacity: 0.78 }),
+  battSide: std('#202329', 0.55),
+  cap: std('#2b2e34', 0.62),
+  smdRed: std('#ff3d3d', 0.4, 0, { emissive: col('#ff2a2a'), emissiveIntensity: 1.4 }),
+  smdGreen: std('#1b7a42', 0.4, 0, { emissive: col('#3dff86'), emissiveIntensity: 0.0 }),
+  cloth: std('#27493f', 0.88),
+  clothDark: std('#1b342d', 0.9),
+  paperEdge: std('#ffffff', 0.95, 0, { map: edgeTex }),
+};
+(function batteryTop() {
+  const t = canvasTex(batteryCanvas());
+  t.repeat.set(1 / 4.8, 1 / 2.6); t.offset.set(0.5, 0.5);
+  M.battTop = std('#ffffff', 0.5, 0, { map: t });
+})();
+const wireMat = hex => std(hex, 0.45);
+
+function mesh(geo, mat) { const m = new THREE.Mesh(geo, mat); m.castShadow = true; m.receiveShadow = true; return m; }
+const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+
+/* rounded rectangle in the XY plane, centred on (cx, cy) */
+function roundedRect(w, h, r, cx, cy, PathType) {
+  const s = new (PathType || THREE.Shape)(), x = (cx || 0) - w / 2, y = (cy || 0) - h / 2;
+  r = Math.max(0.001, Math.min(r, w / 2, h / 2));
+  s.moveTo(x + r, y); s.lineTo(x + w - r, y); s.quadraticCurveTo(x + w, y, x + w, y + r);
+  s.lineTo(x + w, y + h - r); s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  s.lineTo(x + r, y + h); s.quadraticCurveTo(x, y + h, x, y + h - r);
+  s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y);
+  return s;
+}
+/* a block whose footprint is a rounded rect, standing on y = 0. Shape Y maps to world −Z. */
+function roundedBlock(w, d, h, r, bevel, holes) {
+  const bs = bevel || 0;
+  const s = roundedRect(w - 2 * bs, d - 2 * bs, r - bs);
+  (holes || []).forEach(p => s.holes.push(p));
+  const g = new THREE.ExtrudeGeometry(s, { depth: h - 2 * bs, bevelEnabled: bs > 0, bevelThickness: bs, bevelSize: bs, bevelSegments: 3, curveSegments: 12 });
+  g.rotateX(-Math.PI / 2); g.translate(0, bs, 0);
+  return g;
+}
+const circleHole = (x, y, r) => new THREE.Path().absarc(x, y, r, 0, Math.PI * 2, true);
+
+/* =====================================================================
+   THE DEVICE  (units: cm, origin at the bottom centre of the shell)
+   ===================================================================== */
+const W = MM.w / 10, D = MM.d / 10, H = MM.h / 10;
+const WALL = 0.25, LID_T = 0.3, HB = H - LID_T, RAD = 0.55;
+const WIN = { x: -0.3, z: -0.2, w: 2.35, d: 1.3 };
+const BTN = { x: -0.45, z: 1.45, r: 0.3 };
+const PORT = { x: W / 2 - 1.6, z: 0.6, r: 0.32 };
+const DEVICE_POS = new V3(0, 6, -15.9);
+
+const deviceRoot = new THREE.Group();
+deviceRoot.position.copy(DEVICE_POS);
+scene.add(deviceRoot);
+
+const parts = {};        // id -> { groups, mats }
+const exploders = [];    // groups that move apart in the exploded view
+function addPart(id, group, explodeOffset) {
+  if (!parts[id]) parts[id] = { groups: [], mats: [] };
+  parts[id].groups.push(group);
+  group.userData.part = id;
+  if (explodeOffset) { group.userData.home = group.position.clone(); group.userData.explode = explodeOffset; exploders.push(group); }
+  deviceRoot.add(group);
+  return group;
+}
+
+/* --- shell: base tray + top plate --- */
+const shellMats = [];
+const baseGroup = new THREE.Group();
+{
+  const inner = roundedRect(W - 2 * WALL + 0.2, D - 2 * WALL + 0.2, RAD - WALL, 0, 0, THREE.Path);
+  const walls = mesh(roundedBlock(W, D, HB, RAD, 0.1, [inner]), [M.plaCap, M.plaSide]);
+  const floor = mesh(roundedBlock(W - 2 * WALL + 0.06, D - 2 * WALL + 0.06, WALL, RAD - WALL, 0), [M.plaCap, M.plaSide]);
+  baseGroup.add(walls, floor);
+}
+const decal = (() => {
+  /* BOOK COUNTER, embossed: a height map turned into a normal map, cut out with alphaTest */
+  const pw = W * 0.82, ph = HB * 0.42, cw = 1024, ch = Math.round(cw * ph / pw);
+  const hc = makeCanvas(cw, ch), hx = hc.getContext('2d');
+  const mapC = makeCanvas(cw, ch), nrmTex = canvasTex(makeCanvas(cw, ch), false), mapTex = canvasTex(mapC);
+  const mat = std('#f3f1ec', 0.58, 0, { map: mapTex, normalMap: nrmTex, normalScale: new V2(1, 1), alphaTest: 0.5, envMapIntensity: 0.55 });
+  function draw() {
+    hx.fillStyle = '#000'; hx.fillRect(0, 0, cw, ch);
+    hx.fillStyle = '#fff'; hx.textAlign = 'center'; hx.textBaseline = 'middle';
+    let size = ch * 0.78;
+    const font = s => `800 ${s}px "Archivo", "Arial Black", Arial, sans-serif`;
+    hx.font = font(size);
+    const tw = hx.measureText('BOOK COUNTER').width;
+    if (tw > cw * 0.94) { size *= cw * 0.94 / tw; hx.font = font(size); }
+    hx.fillText('BOOK COUNTER', cw / 2, ch / 2 + size * 0.04);
+    const src = hx.getImageData(0, 0, cw, ch).data, hgt = new Float32Array(cw * ch);
+    for (let i = 0; i < hgt.length; i++) hgt[i] = src[i * 4] / 255;
+    const soft = boxBlur(boxBlur(hgt, cw, ch, 2), cw, ch, 1);
+    nrmTex.image = heightToNormal(soft, cw, ch, 5.5, false); nrmTex.needsUpdate = true;
+    const mx = mapC.getContext('2d'), img = mx.createImageData(cw, ch), d = img.data;
+    for (let i = 0; i < soft.length; i++) {
+      const v = soft[i];
+      d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = 255 - Math.round(Math.max(0, 0.35 - Math.abs(v - 0.35)) * 40);
+      d[i * 4 + 3] = v > 0.06 ? 255 : 0;
+    }
+    mx.putImageData(img, 0, 0); mapTex.needsUpdate = true;
+  }
+  draw();
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(pw, ph), mat);
+  m.position.set(0, HB * 0.48, D / 2 + 0.004);
+  m.receiveShadow = true;
+  m.userData.redraw = draw;
+  return m;
+})();
+baseGroup.add(decal);
+/* printed mounts that hold the IR modules off the front corners */
+[-1, 1].forEach(side => {
+  const m = mesh(roundedBlock(0.8, 0.62, 1.0, 0.14, 0.05), [M.plaCap, M.plaSide]);
+  m.position.set(side * (W / 2 - 0.45), H - 2.55, D / 2 + 0.3);
+  baseGroup.add(m);
+});
+addPart('shell', baseGroup);
+
+const lidGroup = new THREE.Group();
+lidGroup.position.set(0, HB, 0);
+{
+  const bs = 0.08;
+  const holes = [
+    roundedRect(WIN.w + 2 * bs, WIN.d + 2 * bs, 0.06 + bs, WIN.x, -WIN.z, THREE.Path),
+    circleHole(BTN.x, -BTN.z, BTN.r + bs),
+    circleHole(PORT.x, -PORT.z, PORT.r + bs),
+    circleHole(-PORT.x, -PORT.z, PORT.r + bs),
+  ];
+  lidGroup.add(mesh(roundedBlock(W, D, LID_T, RAD, bs, holes), [M.plaCap, M.plaSide]));
+}
+addPart('shell', lidGroup, new V3(0, 6.2, 0));
+
+/* --- OLED module, hanging under the window --- */
+const oledGroup = new THREE.Group();
+oledGroup.position.set(WIN.x, HB, WIN.z);
+{
+  const glass = mesh(box(2.62, 0.14, 1.62), M.glass); glass.position.y = -0.07;
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(2.17, 1.09), M.screen);
+  screen.rotation.x = -Math.PI / 2; screen.position.y = 0.003;
+  const pcb = mesh(box(2.75, 0.12, 2.8), M.oledPcb); pcb.position.set(0, -0.2, -0.3);
+  const ribbon = mesh(box(1.2, 0.05, 0.3), M.black); ribbon.position.set(0, -0.12, -0.95);
+  const header = mesh(box(1.02, 0.25, 0.25), M.black); header.position.set(0, -0.385, -1.45);
+  oledGroup.add(glass, screen, pcb, ribbon, header);
+  for (let i = 0; i < 4; i++) { const p = mesh(box(0.06, 0.32, 0.06), M.gold); p.position.set(-0.381 + i * 0.254, -0.62, -1.45); oledGroup.add(p); }
+}
+addPart('oled', oledGroup, new V3(0, 4.6, 0));
+
+/* --- reset button --- */
+const buttonGroup = new THREE.Group();
+buttonGroup.position.set(BTN.x, HB, BTN.z);
+const buttonCap = mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.34, 28), M.cap);
+{
+  const body = mesh(box(0.62, 0.36, 0.62), M.black); body.position.y = -0.18;
+  const plate = mesh(box(0.64, 0.03, 0.64), M.metal); plate.position.y = -0.005;
+  buttonCap.position.y = 0.07;
+  buttonGroup.add(body, plate, buttonCap);
+  [[-0.24, -0.24], [0.24, -0.24], [-0.24, 0.24], [0.24, 0.24]].forEach(([x, z]) => { const l = mesh(box(0.06, 0.25, 0.06), M.metal); l.position.set(x, -0.45, z); buttonGroup.add(l); });
+}
+addPart('button', buttonGroup, new V3(0, 3.4, 0));
+
+/* --- power switch on the back wall --- */
+const switchGroup = new THREE.Group();
+switchGroup.position.set(1.2, HB - 0.75, -D / 2);
+{
+  const body = mesh(box(1.15, 0.5, 0.42), M.black); body.position.z = -0.21;
+  const plate = mesh(box(1.3, 0.62, 0.04), M.metal); plate.position.z = -0.02;
+  const knob = mesh(box(0.34, 0.3, 0.32), M.cap); knob.position.set(-0.2, 0, -0.56);
+  switchGroup.add(body, plate, knob);
+}
+addPart('power', switchGroup, new V3(0, 1.0, -2.2));
+
+/* --- microcontroller (Arduino Nano) on the floor --- */
+const nanoGroup = new THREE.Group();
+nanoGroup.position.set(-2.3, WALL, 1.2);
+const NANO_TOP = 0.47;
+{
+  [-0.76, 0.76].forEach(z => { const s = mesh(box(3.85, 0.3, 0.26), M.black); s.position.set(0, 0.15, z); nanoGroup.add(s); });
+  const pcb = mesh(box(4.3, 0.16, 1.8), [M.nanoEdge, M.nanoEdge, M.nanoTop, M.nanoEdge, M.nanoEdge, M.nanoEdge]); pcb.position.y = 0.38;
+  const chip = mesh(box(0.72, 0.1, 0.72), M.blackGloss); chip.position.set(0.25, 0.51, 0); chip.rotation.y = Math.PI / 4;
+  const usb = mesh(box(0.8, 0.38, 0.76), M.metal); usb.position.set(-1.95, 0.65, 0);
+  const xtal = mesh(box(0.36, 0.14, 0.16), M.metal); xtal.position.set(-0.75, 0.53, 0.38);
+  const rst = mesh(box(0.3, 0.12, 0.3), M.potScrew); rst.position.set(-0.75, 0.52, -0.3);
+  const reg = mesh(box(0.34, 0.12, 0.3), M.black); reg.position.set(-1.25, 0.52, 0.42);
+  nanoGroup.add(pcb, chip, usb, xtal, rst, reg);
+}
+addPart('mcu', nanoGroup, new V3(0, 1.9, 0));
+const nanoPin = name => {
+  let i = NANO_FRONT.indexOf(name);
+  if (i >= 0) return new V3(-1.78 + i * 0.254, NANO_TOP + 0.02, 0.76);
+  i = NANO_BACK.indexOf(name);
+  return new V3(-1.78 + i * 0.254, NANO_TOP + 0.02, -0.76);
+};
+
+/* --- battery --- */
+const battGroup = new THREE.Group();
+battGroup.position.set(2.0, WALL, -1.05);
+{
+  battGroup.add(mesh(roundedBlock(4.8, 2.6, 1.75, 0.22, 0.08), [M.battTop, M.battSide]));
+  const round = mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.22, 20), M.metal); round.rotation.z = Math.PI / 2; round.position.set(2.5, 0.95, 0.55);
+  const hex = mesh(new THREE.CylinderGeometry(0.27, 0.27, 0.18, 6), M.metal); hex.rotation.z = Math.PI / 2; hex.position.set(2.48, 0.95, -0.55);
+  const snap = mesh(box(0.32, 0.8, 1.95), M.black); snap.position.set(2.78, 0.95, 0);
+  battGroup.add(round, hex, snap);
+}
+addPart('battery', battGroup, new V3(0, 0.7, -0.6));
+
+/* --- the two IR modules on the front corners --- */
+const beamAlpha = (() => {
+  const c = makeCanvas(4, 128), x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 0, 128);
+  g.addColorStop(0, '#fff'); g.addColorStop(0.5, '#555'); g.addColorStop(1, '#000');
+  x.fillStyle = g; x.fillRect(0, 0, 4, 128);
+  return canvasTex(c, false);
+})();
+const PIN_X = [-0.254, 0, 0.254];
+function buildSensor(side) {
+  const outer = new THREE.Group();
+  outer.position.set(side * (W / 2 - 0.25), H - 1.3, D / 2 + 0.5);
+  outer.rotation.z = side * 0.38;
+  const tilt = new THREE.Group();
+  tilt.rotation.x = -0.26;
+  outer.add(tilt);
+  const add = (m, x, y, z) => { m.position.set(x, y, z); tilt.add(m); return m; };
+  add(mesh(box(1.4, 3.2, 0.16), [M.pcbEdge, M.pcbEdge, M.pcbEdge, M.pcbEdge, M.pcbFace, M.pcbBack]), 0, -1.6, 0);
+  add(mesh(box(0.78, 0.25, 0.25), M.black), 0, 0.12, 0);
+  PIN_X.forEach(px => { add(mesh(box(0.25, 1.35, 0.25), M.black), px, 0.93, 0); add(mesh(box(0.05, 0.25, 0.05), M.gold), px, 0.3, 0); });
+  add(mesh(box(0.5, 0.14, 0.4), M.blackGloss), 0.12, -0.8, 0.15).rotation.x = Math.PI / 2;
+  for (let i = 0; i < 4; i++) [-1, 1].forEach(s => add(mesh(box(0.05, 0.04, 0.1), M.metal), 0.12 + s * 0.3, -0.65 - i * 0.1, 0.1));
+  add(mesh(box(0.66, 0.66, 0.42), M.potBlue), -0.22, -1.55, 0.29);
+  const screw = add(mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.06, 20), M.potScrew), -0.22, -1.55, 0.52); screw.rotation.x = Math.PI / 2;
+  add(mesh(box(0.26, 0.04, 0.04), M.black), -0.22, -1.55, 0.555).rotation.z = 0.6;
+  add(mesh(box(0.16, 0.1, 0.08), M.smdRed), 0.48, -1.1, 0.12).userData.noHighlight = true;
+  const ledObs = add(mesh(box(0.16, 0.1, 0.08), M.smdGreen), 0.48, -1.36, 0.12);
+  ledObs.userData.noHighlight = true;
+  [[-0.45, -2.6], [0.45, -2.6], [0.45, -0.35]].forEach(([x, y]) => add(mesh(box(0.16, 0.08, 0.06), M.black), x, y, 0.11));
+  /* emitter (clear) and photodiode (dark) at the far end, pointing along the board */
+  const emitX = 0.33 * side, recvX = -0.33 * side;
+  [emitX, recvX].forEach((x, i) => {
+    const mat = i === 0 ? M.ledClear : M.blackGloss;
+    [-0.08, 0.08].forEach(dx => add(mesh(box(0.04, 0.32, 0.04), M.metal), x + dx, -3.34, 0));
+    add(mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.55, 20), mat), x, -3.75, 0);
+    add(mesh(new THREE.SphereGeometry(0.25, 20, 12, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), mat), x, -4.02, 0);
+  });
+  /* the IR beam, drawn as a fading cone (real IR is invisible) */
+  const beamGeo = new THREE.ConeGeometry(1.0, 2.9, 28, 1, true); beamGeo.translate(0, -1.45, 0);
+  const beam = new THREE.Mesh(beamGeo, new THREE.MeshBasicMaterial({ color: col('#ff6479'), transparent: true, opacity: 0, alphaMap: beamAlpha, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
+  beam.position.set(0, -4.15, 0); beam.raycast = () => {}; beam.visible = false;
+  tilt.add(beam);
+  const housingTop = PIN_X.map(px => { const o = new THREE.Object3D(); o.position.set(px, 1.62, 0); tilt.add(o); return o; });
+  const tip = new THREE.Object3D(); tip.position.set(0, -4.3, 0); tilt.add(tip);
+  addPart(side < 0 ? 'sensorL' : 'sensorR', outer, new V3(side * 2.6, 0.5, 1.0));
+  return { outer, tilt, beam, ledObs, housingTop, tip };
+}
+const sensorL = buildSensor(-1);
+const sensorR = buildSensor(1);
+
+/* --- wires: rebuilt whenever the parts move --- */
+const wiresGroup = new THREE.Group();
+addPart('wires', wiresGroup);
+const tmpV = new V3();
+const ptIn = (obj, x, y, z) => deviceRoot.worldToLocal(obj.localToWorld(tmpV.set(x, y, z)).clone());
+const WIRE_DEFS = [];
+function wire(hex, fn) { const m = mesh(new THREE.BufferGeometry(), wireMat(hex)); m.castShadow = true; wiresGroup.add(m); WIRE_DEFS.push({ m, fn }); }
+[[sensorL, -1, ['#8a63d2', '#e8e8e8', '#3fae5a']], [sensorR, 1, ['#9aa0a6', '#e8e8e8', '#3fae5a']]].forEach(([s, side, colors]) => {
+  const pins = ['5V', 'GND', side < 0 ? 'D2' : 'D3'];
+  [0, 1, 2].forEach(k => {
+    wire(colors[k], () => {
+      const o = (k - 1) * 0.11, hx = side * PORT.x;
+      const p = nanoPin(pins[k]).add(new V3(o * 0.4, 0, 0));
+      return [
+        ptIn(s.housingTop[k], 0, 0, 0), ptIn(s.housingTop[k], 0, 0.7, 0.05),
+        ptIn(lidGroup, hx + side * 0.9 + o, LID_T + 1.0, PORT.z + o), ptIn(lidGroup, hx + o * 0.6, LID_T + 0.35, PORT.z + o * 0.6),
+        ptIn(lidGroup, hx + o * 0.6, -0.4, PORT.z + o * 0.6), ptIn(lidGroup, hx * 0.8 + o, -1.0, PORT.z * 0.5 + o),
+        ptIn(nanoGroup, p.x, p.y + 1.0, p.z), ptIn(nanoGroup, p.x, p.y, p.z),
+      ];
+    });
+  });
+});
+[['#26282c', 'GND'], ['#d6453d', '5V'], ['#e2b93b', 'A5'], ['#3b82d6', 'A4']].forEach(([hex, pin], i) => {
+  wire(hex, () => {
+    const x = -0.381 + i * 0.254, p = nanoPin(pin).add(new V3(0.05 * (i - 1.5), 0, 0));
+    return [ptIn(oledGroup, x, -0.78, -1.45), ptIn(oledGroup, x, -1.3, -1.35), ptIn(nanoGroup, p.x, p.y + 1.1, p.z - 0.2), ptIn(nanoGroup, p.x, p.y, p.z)];
+  });
+});
+[['#e0823a', 'D4', -0.24], ['#26282c', 'GND', 0.24]].forEach(([hex, pin, x]) => {
+  wire(hex, () => { const p = nanoPin(pin); return [ptIn(buttonGroup, x, -0.55, 0), ptIn(buttonGroup, x, -1.1, -0.1), ptIn(nanoGroup, p.x, p.y + 0.9, p.z + 0.2), ptIn(nanoGroup, p.x, p.y, p.z)]; });
+});
+wire('#d6453d', () => [ptIn(battGroup, 2.94, 1.15, 0.4), ptIn(battGroup, 3.1, 1.5, -0.6), ptIn(switchGroup, -0.3, 0.1, 0.9), ptIn(switchGroup, -0.3, 0, 0.05)]);
+wire('#d6453d', () => { const p = nanoPin('VIN'); return [ptIn(switchGroup, 0.3, 0, 0.05), ptIn(switchGroup, 0.3, 0.1, 0.9), ptIn(nanoGroup, p.x, p.y + 1.2, p.z - 0.5), ptIn(nanoGroup, p.x, p.y, p.z)]; });
+wire('#26282c', () => { const p = nanoPin('GND').add(new V3(0.05, 0, 0)); return [ptIn(battGroup, 2.94, 1.15, -0.4), ptIn(battGroup, 3.0, 1.9, 0.6), ptIn(nanoGroup, p.x + 0.6, p.y + 1.2, p.z + 0.3), ptIn(nanoGroup, p.x, p.y, p.z)]; });
+function rebuildWires() {
+  deviceRoot.updateMatrixWorld(true);
+  WIRE_DEFS.forEach(w => {
+    const curve = new THREE.CatmullRomCurve3(w.fn(), false, 'centripetal');
+    const g = new THREE.TubeGeometry(curve, 48, 0.065, 6, false);
+    w.m.geometry.dispose(); w.m.geometry = g;
+  });
+}
+
+/* --- dimension lines for the build slide --- */
+const dimsGroup = new THREE.Group();
+deviceRoot.add(dimsGroup);
+const dimMat = new THREE.LineBasicMaterial({ color: col('#86d6ff'), transparent: true, opacity: 0, depthTest: false, toneMapped: false });
+const DIM_LABELS = [];
+function dimLine(a, b, ext, text) {
+  const pts = [], dir = b.clone().sub(a).normalize(), extN = ext.clone().normalize();
+  const tick = dir.clone().add(extN).normalize().multiplyScalar(0.22);
+  const A = a.clone().add(ext), B = b.clone().add(ext);
+  pts.push(a, A.clone().addScaledVector(extN, 0.25), b, B.clone().addScaledVector(extN, 0.25));
+  pts.push(A, B, A.clone().sub(tick), A.clone().add(tick), B.clone().sub(tick), B.clone().add(tick));
+  const l = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), dimMat);
+  l.renderOrder = 10; l.raycast = () => {};
+  dimsGroup.add(l);
+  const anchor = new THREE.Object3D(); anchor.position.copy(A.clone().add(B).multiplyScalar(0.5)); dimsGroup.add(anchor);
+  DIM_LABELS.push({ obj: anchor, text });
+}
+dimLine(new V3(-W / 2, H, -D / 2), new V3(W / 2, H, -D / 2), new V3(0, 1.0, 0), `${MM.w} mm`);
+dimLine(new V3(-W / 2, H, -D / 2), new V3(-W / 2, H, D / 2), new V3(-1.0, 0, 0), `${MM.d} mm`);
+dimLine(new V3(W / 2, 0, -D / 2), new V3(W / 2, H, -D / 2), new V3(1.0, 0, 0), `${MM.h} mm`);
+dimsGroup.visible = false;
+
+/* clone materials per part so a highlight on one part never lights up another */
+Object.keys(parts).forEach(id => {
+  parts[id].groups.forEach(g => g.traverse(o => {
+    if (!o.isMesh || o.material === M.screen) return;
+    o.material = Array.isArray(o.material) ? o.material.map(m => m.clone()) : o.material.clone();
+    (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => {
+      if (id === 'shell') shellMats.push(m);
+      if (m.emissive && !o.userData.noHighlight) { m.userData.baseEmissive = m.emissive.clone(); m.userData.baseEI = m.emissiveIntensity; parts[id].mats.push(m); }
+    });
+  }));
+});
+const pickables = Object.keys(parts).reduce((a, id) => a.concat(parts[id].groups), []);
+
+/* =====================================================================
+   THE DESK AND THE BOOK
+   ===================================================================== */
+const desk = new THREE.Mesh(new THREE.PlaneGeometry(160, 160), new THREE.MeshStandardMaterial({ color: col('#ffffff'), map: deskGrain, roughness: 0.9, metalness: 0, alphaMap: deskAlpha, transparent: true }));
+desk.rotation.x = -Math.PI / 2;
+desk.position.set(0, 0, -8);
+desk.receiveShadow = true;
+scene.add(desk);
+
+const PAGE_W = 15, PAGE_D = 22, BLOCK_H = 1.0, COVER_T = 0.22, GUTTER = 0.3;
+const PAGE_TOP = COVER_T + BLOCK_H;
+const book = new THREE.Group();
+scene.add(book);
+const pageCanvases = { L: makeCanvas(PAGE_CW, PAGE_CH), R: makeCanvas(PAGE_CW, PAGE_CH), front: makeCanvas(PAGE_CW, PAGE_CH), back: makeCanvas(PAGE_CW, PAGE_CH) };
+const pageTex = {};
+Object.keys(pageCanvases).forEach(k => { pageTex[k] = canvasTex(pageCanvases[k]); });
+const pageMat = k => std('#ffffff', 0.92, 0, { map: pageTex[k], envMapIntensity: 0.4 });
+{
+  [-1, 1].forEach(s => {
+    const cover = mesh(box(PAGE_W + 0.7, COVER_T, PAGE_D + 0.8), M.cloth);
+    cover.position.set(s * (GUTTER + (PAGE_W + 0.7) / 2 - 0.25), COVER_T / 2, 0);
+    const block = mesh(box(PAGE_W, BLOCK_H, PAGE_D), [M.paperEdge, M.paperEdge, pageMat(s < 0 ? 'L' : 'R'), M.paperEdge, M.paperEdge, M.paperEdge]);
+    block.position.set(s * (GUTTER + PAGE_W / 2), COVER_T + BLOCK_H / 2, 0);
+    book.add(cover, block);
+  });
+  const spine = mesh(box(2 * GUTTER + 0.6, COVER_T * 0.7, PAGE_D + 0.8), M.clothDark); spine.position.y = COVER_T * 0.35 - 0.02;
+  book.add(spine);
+}
+/* the turning leaf: one strip of quads, two sides, bent as it turns */
+const SEG = 30;
+const leafGeo = new THREE.BufferGeometry();
+{
+  const n = (SEG + 1) * 2, pos = new Float32Array(n * 2 * 3), uv = new Float32Array(n * 2 * 2), idx = [];
+  for (let side = 0; side < 2; side++) for (let i = 0; i <= SEG; i++) for (let j = 0; j < 2; j++) {
+    const k = side * n + i * 2 + j;
+    uv[k * 2] = side === 0 ? i / SEG : 1 - i / SEG;
+    uv[k * 2 + 1] = j;
+  }
+  for (let i = 0; i < SEG; i++) {
+    const a = i * 2, b = a + 1, c = a + 2, d = a + 3;
+    idx.push(a, c, b, c, d, b);
+  }
+  const front = idx.length;
+  for (let i = 0; i < SEG; i++) {
+    const a = n + i * 2, b = a + 1, c = a + 2, d = a + 3;
+    idx.push(a, b, c, c, b, d);
+  }
+  leafGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  leafGeo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  leafGeo.setIndex(idx);
+  leafGeo.addGroup(0, front, 0);
+  leafGeo.addGroup(front, idx.length - front, 1);
+}
+const leaf = new THREE.Mesh(leafGeo, [pageMat('front'), pageMat('back')]);
+leaf.position.set(0, PAGE_TOP + 0.03, 0);
+leaf.castShadow = true; leaf.receiveShadow = true; leaf.visible = false;
+book.add(leaf);
+function setLeaf(theta, dir) {
+  const pos = leafGeo.attributes.position.array, n = (SEG + 1) * 2, ds = PAGE_W / SEG;
+  const bend = 0.62 * Math.sin(theta) * (dir > 0 ? -1 : 1);
+  let x = 0, y = 0;
+  for (let i = 0; i <= SEG; i++) {
+    if (i > 0) { const u = (i - 0.5) / SEG, phi = theta + bend * u * u; x += Math.cos(phi) * ds; y += Math.sin(phi) * ds; }
+    for (let side = 0; side < 2; side++) for (let j = 0; j < 2; j++) {
+      const k = (side * n + i * 2 + j) * 3;
+      pos[k] = x; pos[k + 1] = y; pos[k + 2] = j === 0 ? PAGE_D / 2 : -PAGE_D / 2;
+    }
+  }
+  leafGeo.attributes.position.needsUpdate = true;
+  leafGeo.computeVertexNormals();
+  leafGeo.computeBoundingSphere();
+}
+
+const bookState = { left: CONFIG.startPage, active: null, queue: [], pause: 0, theta: null };
+function paintPage(key, num, side) { drawPage(pageCanvases[key], num, side); pageTex[key].needsUpdate = true; }
+function paintBook() { paintPage('L', bookState.left, 'L'); paintPage('R', bookState.left + 1, 'R'); }
+paintBook();
+
+/* =====================================================================
+   SENSORS + FIRMWARE (the same logic as the code on the slide)
+   ===================================================================== */
+const sensors = { r: false, l: false };
+const fw = { pages: 0, armed: null, lastCount: -1e9, wasR: false, wasL: false, flashDir: 0, flashUntil: 0, resetUntil: 0 };
+const scope = { samples: [], events: [] };
+const WIN_R = [0.08, 0.55], WIN_L = [Math.PI - 0.55, Math.PI - 0.08];
+
+function fwHit(side, now) {
+  if (now - fw.lastCount < CONFIG.lockoutMs) return;
+  if (fw.armed && fw.armed !== side) {
+    const d = fw.armed === 'R' ? 1 : -1;
+    fw.pages = Math.max(0, fw.pages + d);
+    fw.lastCount = now; fw.armed = null;
+    fw.flashDir = d; fw.flashUntil = now + 700;
+    scope.events.push({ t: now / 1000, d });
+    syncCount();
+  } else {
+    fw.armed = side;
+  }
+}
+function fwStep(now) {
+  const th = bookState.theta;
+  sensors.r = th !== null && th >= WIN_R[0] && th <= WIN_R[1];
+  sensors.l = th !== null && th >= WIN_L[0] && th <= WIN_L[1];
+  if (sensors.r && !fw.wasR) fwHit('R', now);
+  if (sensors.l && !fw.wasL) fwHit('L', now);
+  fw.wasR = sensors.r; fw.wasL = sensors.l;
+  scope.samples.push({ t: now / 1000, r: sensors.r, l: sensors.l });
+  const cutoff = now / 1000 - 7;
+  while (scope.samples.length && scope.samples[0].t < cutoff) scope.samples.shift();
+  while (scope.events.length && scope.events[0].t < cutoff) scope.events.shift();
+}
+function pressReset() {
+  fw.pages = 0; fw.armed = null; fw.resetUntil = performance.now() + 900;
+  buttonPress = 0.18;
+  syncCount();
+}
+let buttonPress = 0;
+
+function requestFlip(dir) {
+  if (state.book < 0.6) { toast('Go to a slide with the book to turn pages.'); return; }
+  if (bookState.queue.length < 4) bookState.queue.push(dir);
+}
+function startFlip(dir) {
+  const L = bookState.left;
+  if (dir < 0 && L - 2 < 2) return false;
+  if (dir > 0) { paintPage('front', L + 1, 'R'); paintPage('back', L + 2, 'L'); paintPage('R', L + 3, 'R'); }
+  else { paintPage('back', L, 'L'); paintPage('front', L - 1, 'R'); paintPage('L', L - 2, 'L'); }
+  bookState.active = { dir, t: 0, dur: reduceMotion ? 0.7 : 1.15 };
+  setLeaf(dir > 0 ? 0 : Math.PI, dir);
+  leaf.visible = true;
+  return true;
+}
+function updateFlip(dt) {
+  if (!bookState.active) {
+    bookState.pause = Math.max(0, bookState.pause - dt);
+    if (bookState.queue.length && bookState.pause === 0) startFlip(bookState.queue.shift());
+  }
+  const a = bookState.active;
+  if (!a) { bookState.theta = null; return; }
+  a.t = Math.min(1, a.t + dt / a.dur);
+  const k = easeInOut(a.t), th = a.dir > 0 ? k * Math.PI : (1 - k) * Math.PI;
+  bookState.theta = th;
+  setLeaf(th, a.dir);
+  if (a.t >= 1) {
+    if (a.dir > 0) { bookState.left += 2; paintPage('L', bookState.left, 'L'); }
+    else { bookState.left -= 2; paintPage('R', bookState.left + 1, 'R'); }
+    leaf.visible = false; bookState.active = null; bookState.pause = 0.22; bookState.theta = null;
+  }
+}
+
+/* =====================================================================
+   CAMERA PRESETS + ORBIT CONTROLS
+   ===================================================================== */
+const DC = DEVICE_POS.clone().add(new V3(0, H / 2, 0));
+const VIEWS = {
+  hero:   { t: [DC.x, DC.y - 0.9, DC.z], theta: 0.62, phi: 1.2, r: 33 },
+  hero2:  { t: [DC.x, DC.y - 0.9, DC.z], theta: -0.7, phi: 1.12, r: 33 },
+  device: { t: [DC.x, DC.y - 0.9, DC.z], theta: -0.36, phi: 1.12, r: 29 },
+  inside: { t: [DC.x, DC.y + 2.6, DC.z], theta: 0.52, phi: 1.04, r: 37 },
+  sensor: { t: [DC.x + W / 2 + 1.4, DC.y - 3.2, DC.z + D / 2 + 1.6], theta: 0.78, phi: 1.18, r: 25 },
+  wide:   { t: [0, 2.5, -6], theta: 0.48, phi: 1.0, r: 56 },
+  demo:   { t: [0, 2.6, -6.5], theta: 0.0, phi: 0.92, r: 55 },
+  oled:   { t: [DC.x + WIN.x, DC.y + H / 2 - 1.2, DC.z + WIN.z + 2.6], theta: 0.0, phi: 0.58, r: 22 },
+  wiring: { t: [DC.x, DC.y + 2.4, DC.z + 0.5], theta: 0.05, phi: 0.62, r: 30 },
+  design: { t: [DC.x, DC.y - 0.3, DC.z], theta: 0.78, phi: 1.1, r: 24 },
+  side:   { t: [0, 3.0, -7.5], theta: -0.62, phi: 0.98, r: 52 },
+};
+const orbit = { target: new V3(), theta: 0.6, phi: 1.15, r: 30, vt: 0, vp: 0, tween: null, lastUser: -1e9, view: null };
+const view = { panelOffset: 0, aspect: 1 };
+function fitFactor() { const a = view.aspect; return a < 1.35 ? Math.pow(1.35 / a, 0.6) : 1; }
+function goToView(name, dur, instant) {
+  const v = VIEWS[name]; orbit.view = name;
+  if (instant) {
+    orbit.target.fromArray(v.t); orbit.theta = v.theta; orbit.phi = v.phi; orbit.r = v.r * fitFactor();
+    orbit.tween = null; orbit.vt = orbit.vp = 0;
+    return;
+  }
+  let dTheta = v.theta - orbit.theta;
+  dTheta = ((dTheta + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
+  orbit.tween = { from: { target: orbit.target.clone(), theta: orbit.theta, phi: orbit.phi, r: orbit.r }, to: { target: new V3().fromArray(v.t), phi: v.phi, r: v.r * fitFactor() }, dTheta, t: 0, dur: reduceMotion ? 0.001 : (dur || 1.5) };
+  orbit.vt = orbit.vp = 0;
+}
+function focusOn(groups) {
+  const b = new THREE.Box3(); groups.forEach(g => b.expandByObject(g));
+  const c = b.getCenter(new V3()), s = b.getSize(new V3()).length();
+  orbit.tween = { from: { target: orbit.target.clone(), theta: orbit.theta, phi: orbit.phi, r: orbit.r }, to: { target: c, phi: clamp(orbit.phi, 0.55, 1.25), r: clamp(s * 2.4 + 4, 7, 40) * fitFactor() }, dTheta: 0, t: 0, dur: reduceMotion ? 0.001 : 1.1 };
+}
+function updateOrbit(dt, nowMs) {
+  const tw = orbit.tween;
+  if (tw) {
+    tw.t = Math.min(1, tw.t + dt / tw.dur);
+    const k = easeInOut(tw.t);
+    orbit.target.lerpVectors(tw.from.target, tw.to.target, k);
+    orbit.theta = tw.from.theta + tw.dTheta * k;
+    orbit.phi = lerp(tw.from.phi, tw.to.phi, k);
+    orbit.r = lerp(tw.from.r, tw.to.r, k);
+    if (tw.t >= 1) orbit.tween = null;
+  } else if (!drag.active) {
+    orbit.theta += orbit.vt * dt; orbit.phi += orbit.vp * dt;
+    const decay = Math.exp(-dt * 5); orbit.vt *= decay; orbit.vp *= decay;
+    if (state.spin && !reduceMotion && nowMs - orbit.lastUser > 2500) orbit.theta += 0.16 * dt;
+  }
+  orbit.phi = clamp(orbit.phi, 0.12, 1.5);
+  orbit.r = clamp(orbit.r, 4, 110);
+  const sp = Math.sin(orbit.phi);
+  camera.position.set(orbit.target.x + orbit.r * sp * Math.sin(orbit.theta), orbit.target.y + orbit.r * Math.cos(orbit.phi), orbit.target.z + orbit.r * sp * Math.cos(orbit.theta));
+  camera.lookAt(orbit.target);
+}
+
+const drag = { active: false, moved: 0, x: 0, y: 0, downAt: 0, pointers: new Map(), pinch: 0, lastDT: 0, lastDP: 0, lastT: 0 };
+const pointer = { x: 0, y: 0, inside: false, dirty: false };
+canvas.addEventListener('pointerdown', e => {
+  canvas.setPointerCapture(e.pointerId);
+  drag.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (drag.pointers.size === 1) { drag.active = true; drag.moved = 0; drag.x = e.clientX; drag.y = e.clientY; drag.downAt = performance.now(); drag.lastT = drag.downAt; }
+  if (drag.pointers.size === 2) { const [a, b] = Array.from(drag.pointers.values()); drag.pinch = Math.hypot(a.x - b.x, a.y - b.y); }
+  orbit.tween = null; orbit.vt = orbit.vp = 0; orbit.lastUser = performance.now();
+  canvas.classList.add('dragging');
+});
+canvas.addEventListener('pointermove', e => {
+  pointer.x = e.clientX; pointer.y = e.clientY; pointer.inside = true; pointer.dirty = true;
+  if (!drag.pointers.has(e.pointerId)) return;
+  drag.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (drag.pointers.size >= 2) {
+    const [a, b] = Array.from(drag.pointers.values()), d = Math.hypot(a.x - b.x, a.y - b.y);
+    if (drag.pinch > 0) orbit.r *= drag.pinch / d;
+    drag.pinch = d; drag.moved += 10; orbit.lastUser = performance.now();
+    return;
+  }
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y, now = performance.now();
+  drag.x = e.clientX; drag.y = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy);
+  const dT = -dx * 0.0058, dP = -dy * 0.0058;
+  orbit.theta += dT; orbit.phi += dP;
+  const el = Math.max(1, now - drag.lastT); drag.lastDT = dT / el * 1000; drag.lastDP = dP / el * 1000; drag.lastT = now;
+  orbit.lastUser = now;
+  if (drag.moved > 6) hideHint();
+});
+function endPointer(e) {
+  if (!drag.pointers.has(e.pointerId)) return;
+  drag.pointers.delete(e.pointerId);
+  if (drag.pointers.size === 0) {
+    const quick = performance.now() - drag.downAt < 450;
+    if (drag.moved < 6 && quick && e.type === 'pointerup') { const id = pickAt(e.clientX, e.clientY); id ? selectPart(id) : selectPart(null); }
+    else if (performance.now() - drag.lastT < 80) { orbit.vt = clamp(drag.lastDT, -4, 4); orbit.vp = clamp(drag.lastDP, -3, 3); }
+    drag.active = false; drag.pinch = 0;
+    canvas.classList.remove('dragging');
+  } else if (drag.pointers.size === 1) {
+    const p = Array.from(drag.pointers.values())[0]; drag.x = p.x; drag.y = p.y; drag.pinch = 0;
+  }
+}
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
+canvas.addEventListener('pointerleave', () => { pointer.inside = false; pointer.dirty = true; });
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  orbit.tween = null; orbit.lastUser = performance.now();
+  orbit.r *= Math.exp(clamp(e.deltaY, -120, 120) * 0.0013);
+  hideHint();
+}, { passive: false });
+
+const raycaster = new THREE.Raycaster();
+const ndc = new V2();
+function pickAt(cx, cy) {
+  const rect = canvas.getBoundingClientRect();
+  ndc.set(((cx - rect.left) / rect.width) * 2 - 1, -((cy - rect.top) / rect.height) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  const hits = raycaster.intersectObjects(pickables, true);
+  for (const h of hits) {
+    let o = h.object;
+    if (!o.visible) continue;
+    while (o && !o.userData.part) o = o.parent;
+    if (!o) continue;
+    if (o.userData.part === 'shell' && state.xrayF > 0.5) continue;
+    return o.userData.part;
+  }
+  return null;
+}
+
+/* =====================================================================
+   SCENE STATE (tweened every frame)
+   ===================================================================== */
+const state = { slide: 0, explode: 0, explodeT: 0, xray: false, xrayF: 0, book: 0, bookT: 0, beams: 0, beamsT: 0, dims: 0, dimsT: 0, spin: false, selected: null, hovered: null, labels: [] };
+let lastExplodeApplied = -1;
+function applyExplode(e) {
+  const k = easeInOut(clamp(e, 0, 1));
+  exploders.forEach(g => g.position.copy(g.userData.home).addScaledVector(g.userData.explode, k));
+  rebuildWires();
+}
+function setXrayMaterials(on) {
+  shellMats.forEach(m => { m.transparent = on; m.depthWrite = !on; m.needsUpdate = true; });
+}
+let xrayMatsOn = false;
+function updateScene(dt, nowMs) {
+  state.explode = approach(state.explode, state.explodeT, reduceMotion ? 60 : 4.2, dt);
+  if (Math.abs(state.explode - state.explodeT) < 0.0005) state.explode = state.explodeT;
+  if (Math.abs(state.explode - lastExplodeApplied) > 0.0001) { applyExplode(state.explode); lastExplodeApplied = state.explode; }
+
+  state.xrayF = approach(state.xrayF, state.xray ? 1 : 0, reduceMotion ? 60 : 6, dt);
+  const wantX = state.xrayF > 0.01;
+  if (wantX !== xrayMatsOn) { setXrayMaterials(wantX); xrayMatsOn = wantX; }
+  shellMats.forEach(m => { m.opacity = 1 - 0.84 * state.xrayF; });
+  decal.visible = state.xrayF < 0.3;
+
+  state.book = approach(state.book, state.bookT, reduceMotion ? 60 : 3.2, dt);
+  book.position.y = -2.6 * (1 - easeInOut(clamp(state.book, 0, 1)));
+  book.visible = state.book > 0.002;
+
+  state.beams = approach(state.beams, state.beamsT, 4, dt);
+  [[sensorR, sensors.r], [sensorL, sensors.l]].forEach(([s, hit]) => {
+    s.beam.visible = state.beams > 0.01;
+    s.beam.material.opacity = state.beams * (hit ? 0.62 : 0.16);
+    s.ledObs.material.emissiveIntensity = hit ? 3 : 0.02;
+  });
+
+  state.dims = approach(state.dims, state.dimsT, 5, dt);
+  dimMat.opacity = state.dims;
+  dimsGroup.visible = state.dims > 0.01;
+
+  buttonPress = Math.max(0, buttonPress - dt);
+  buttonCap.position.y = 0.07 - (buttonPress > 0 ? 0.08 : 0);
+
+  const pulse = 0.5 + 0.5 * Math.sin(nowMs / 1000 * 4.5);
+  Object.keys(parts).forEach(id => {
+    const sel = id === state.selected, hov = id === state.hovered;
+    parts[id].mats.forEach(m => {
+      if (sel || hov) { m.emissive.copy(HILITE); m.emissiveIntensity = sel ? 0.16 + 0.14 * pulse : 0.12; }
+      else { m.emissive.copy(m.userData.baseEmissive); m.emissiveIntensity = m.userData.baseEI; }
+    });
+  });
+}
+const HILITE = col('#86d6ff');
+
+/* =====================================================================
+   3D-ANCHORED LABELS
+   ===================================================================== */
+const labelsEl = $('#labels');
+const LABELS = [
+  { id: 'oled', part: 'oled', obj: oledGroup, at: [0, 0.35, 0] },
+  { id: 'button', part: 'button', obj: buttonGroup, at: [0, 0.3, 0], down: true },
+  { id: 'shell', part: 'shell', obj: baseGroup, at: [-W * 0.3, HB * 0.25, D / 2] },
+  { id: 'lid', part: 'shell', obj: lidGroup, at: [W / 2 - 1.2, LID_T, D / 2 - 0.8], text: 'Top plate' },
+  { id: 'sensorL', part: 'sensorL', obj: sensorL.tilt, at: [0, -2.4, 0.1] },
+  { id: 'sensorR', part: 'sensorR', obj: sensorR.tilt, at: [0, -2.4, 0.1] },
+  { id: 'mcu', part: 'mcu', obj: nanoGroup, at: [0.8, 0.55, 0] },
+  { id: 'battery', part: 'battery', obj: battGroup, at: [-0.6, 1.75, 0] },
+  { id: 'power', part: 'power', obj: switchGroup, at: [-0.2, 0.2, -0.56] },
+];
+LABELS.forEach(l => {
+  const el = document.createElement('div'); el.className = 'tag' + (l.down ? ' down' : ''); el.hidden = true;
+  el.innerHTML = `<span class="tag-dot"></span><button class="tag-text" type="button" tabindex="-1">${esc(l.text || PARTS[l.part].name)}</button>`;
+  el.querySelector('button').addEventListener('click', () => selectPart(l.part));
+  el.querySelector('.tag-dot').addEventListener('click', () => selectPart(l.part));
+  labelsEl.appendChild(el); l.el = el; l.v = new V3();
+});
+DIM_LABELS.forEach(l => {
+  const el = document.createElement('div'); el.className = 'tag dim'; el.hidden = true;
+  el.innerHTML = `<span class="tag-text">${esc(l.text)}</span>`;
+  labelsEl.appendChild(el); l.el = el; l.v = new V3();
+});
+const projV = new V3();
+function placeLabel(l, show) {
+  if (!show) { if (!l.el.hidden) l.el.hidden = true; return; }
+  if (l.at) projV.fromArray(l.at); else projV.set(0, 0, 0);
+  l.obj.localToWorld(projV); projV.project(camera);
+  const vis = projV.z < 1 && Math.abs(projV.x) < 1.2 && Math.abs(projV.y) < 1.2;
+  l.el.hidden = !vis;
+  if (vis) l.el.style.transform = `translate(${((projV.x + 1) / 2 * view.w).toFixed(1)}px, ${((1 - projV.y) / 2 * view.h).toFixed(1)}px)`;
+}
+function updateLabels() {
+  LABELS.forEach(l => { placeLabel(l, state.labels.indexOf(l.id) >= 0); l.el.classList.toggle('on', state.selected === l.part); });
+  DIM_LABELS.forEach(l => placeLabel(l, state.dims > 0.3));
+}
+
+/* =====================================================================
+   UI: slides, nav, tools, part card
+   ===================================================================== */
+const panelBody = $('#panelBody');
+const segsEl = $('#segs');
+const ui = { scope: null };
+SLIDES.forEach((s, i) => {
+  const b = document.createElement('button');
+  b.className = 'seg'; b.type = 'button'; b.title = `${i + 1}. ${s.nav}`; b.setAttribute('aria-label', `Slide ${i + 1}: ${s.nav}`);
+  b.addEventListener('click', () => go(i));
+  segsEl.appendChild(b);
+});
+const pad2 = n => String(n).padStart(2, '0');
+
+function go(i, opts) {
+  i = clamp(i, 0, SLIDES.length - 1);
+  const dir = i >= state.slide ? 1 : -1, first = opts && opts.first;
+  state.slide = i;
+  const s = SLIDES[i];
+  state.explodeT = s.explode || 0;
+  state.xray = !!s.xray;
+  state.bookT = s.book ? 1 : 0;
+  state.beamsT = s.beams ? 1 : 0;
+  state.dimsT = s.dims ? 1 : 0;
+  state.spin = !!s.spin;
+  state.labels = s.labels || [];
+  goToView(s.view, 1.5, first);
+  panelBody.innerHTML = s.html;
+  panelBody.scrollTop = 0;
+  panelBody.classList.remove('enter-next', 'enter-prev');
+  if (!first) { void panelBody.offsetWidth; panelBody.classList.add(dir > 0 ? 'enter-next' : 'enter-prev'); }
+  hydrate(panelBody);
+  $$('.seg', segsEl).forEach((b, k) => { b.classList.toggle('done', k < i); if (k === i) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current'); });
+  $('#count').innerHTML = `<b>${pad2(i + 1)}</b> / ${pad2(SLIDES.length)}`;
+  $('#prev').disabled = i === 0;
+  $('#next').disabled = i === SLIDES.length - 1;
+  selectPart(null);
+  syncTools();
+  try { history.replaceState(null, '', '#' + (i + 1)); } catch (e) { /* ignore */ }
+}
+function hydrate(root) {
+  $$('[data-part]', root).forEach(b => b.addEventListener('click', () => selectPart(b.dataset.part)));
+  $$('[data-action]', root).forEach(b => b.addEventListener('click', () => {
+    const a = b.dataset.action;
+    if (a === 'turn') requestFlip(1);
+    if (a === 'back') requestFlip(-1);
+  }));
+  ui.scope = $('[data-widget="scope"]', root);
+  syncCount();
+}
+function syncCount() {
+  $$('[data-bind="count"]').forEach(el => { el.textContent = String(fw.pages); });
+  $$('[data-bind="count3"]').forEach(el => { el.textContent = String(fw.pages).padStart(3, '0'); });
+}
+
+const card = $('#card');
+function selectPart(id) {
+  state.selected = id;
+  $$('.part-row', panelBody).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.part === id || (id === 'sensorL' && b.dataset.part === 'sensorR'))));
+  if (!id) { card.hidden = true; return; }
+  const p = PARTS[id];
+  $('#cardName').textContent = p.name;
+  $('#cardSpec').textContent = p.spec;
+  $('#cardText').textContent = p.text;
+  const actions = $('#cardActions'); actions.innerHTML = '';
+  const addBtn = (label, fn, primary) => { const b = document.createElement('button'); b.className = 'btn' + (primary ? ' primary' : ''); b.textContent = label; b.addEventListener('click', fn); actions.appendChild(b); };
+  addBtn('Look closer', () => focusOn(parts[id].groups), true);
+  if (id === 'button') addBtn('Press it', pressReset);
+  if (id === 'shell') addBtn(state.explodeT ? 'Close the shell' : 'Open the shell', () => { toggleExplode(); selectPart('shell'); });
+  if ((id === 'sensorL' || id === 'sensorR') && state.book > 0.6) addBtn('Turn a page', () => requestFlip(1));
+  card.hidden = false;
+}
+$('#cardX').addEventListener('click', () => selectPart(null));
+
+const tools = { explode: $('#tExplode'), xray: $('#tXray'), spin: $('#tSpin') };
+function syncTools() {
+  tools.explode.setAttribute('aria-pressed', String(state.explodeT > 0));
+  tools.xray.setAttribute('aria-pressed', String(state.xray));
+  tools.spin.setAttribute('aria-pressed', String(state.spin));
+}
+function toggleExplode() { state.explodeT = state.explodeT > 0 ? 0 : 1; syncTools(); }
+tools.explode.addEventListener('click', toggleExplode);
+tools.xray.addEventListener('click', () => { state.xray = !state.xray; syncTools(); });
+tools.spin.addEventListener('click', () => { state.spin = !state.spin; orbit.lastUser = -1e9; syncTools(); });
+$('#tReset').addEventListener('click', () => goToView(SLIDES[state.slide].view, 1.1));
+function toggleFullscreen() {
+  try {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => toast('Full screen is not available here.'));
+    else toast('Full screen is not available here.');
+  } catch (e) { toast('Full screen is not available here.'); }
+}
+$('#tFull').addEventListener('click', toggleFullscreen);
+const helpEl = $('#help');
+let helpReturn = null;
+function openHelp(on) {
+  if (on) { helpReturn = document.activeElement; helpEl.hidden = false; $('#helpClose').focus(); }
+  else { helpEl.hidden = true; if (helpReturn && helpReturn.focus) helpReturn.focus(); }
+}
+$('#tHelp').addEventListener('click', () => openHelp(true));
+$('#helpClose').addEventListener('click', () => openHelp(false));
+helpEl.addEventListener('click', e => { if (e.target === helpEl) openHelp(false); });
+$('#prev').addEventListener('click', () => go(state.slide - 1));
+$('#next').addEventListener('click', () => go(state.slide + 1));
+
+const hintEl = $('#hint');
+if (matchMedia('(pointer: coarse)').matches) hintEl.textContent = 'Drag to rotate · Pinch to zoom · Tap a part';
+let hintTimer = setTimeout(hideHint, 12000);
+function hideHint() { hintEl.classList.add('gone'); clearTimeout(hintTimer); }
+
+const tipEl = $('#tip');
+let toastTimer = 0;
+function toast(msg) {
+  tipEl.textContent = msg; tipEl.hidden = false;
+  const r = stageEl.getBoundingClientRect();
+  tipEl.style.transform = `translate(${Math.max(16, r.left + r.width / 2 - 140)}px, ${r.top + 70}px)`;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { tipEl.hidden = true; toastTimer = 0; }, 2200);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.altKey || e.ctrlKey || e.metaKey) return;
+  const tag = (e.target && e.target.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  if (!helpEl.hidden) { if (e.key === 'Escape') { e.preventDefault(); openHelp(false); } return; }
+  const k = e.key;
+  if (k === 'ArrowRight' || k === 'PageDown' || (k === ' ' && tag !== 'BUTTON')) { e.preventDefault(); go(state.slide + 1); }
+  else if (k === 'ArrowLeft' || k === 'PageUp') { e.preventDefault(); go(state.slide - 1); }
+  else if (k === 'Home') { e.preventDefault(); go(0); }
+  else if (k === 'End') { e.preventDefault(); go(SLIDES.length - 1); }
+  else if (k === 't' || k === 'T') requestFlip(1);
+  else if (k === 'b' || k === 'B') requestFlip(-1);
+  else if (k === 'e' || k === 'E') toggleExplode();
+  else if (k === 'x' || k === 'X') { state.xray = !state.xray; syncTools(); }
+  else if (k === 's' || k === 'S') { state.spin = !state.spin; orbit.lastUser = -1e9; syncTools(); }
+  else if (k === 'r' || k === 'R') goToView(SLIDES[state.slide].view, 1.1);
+  else if (k === 'f' || k === 'F') toggleFullscreen();
+  else if (k === '?') openHelp(true);
+  else if (k === 'Escape') selectPart(null);
+});
+
+/* ---------- the sensor trace on the demo slide ---------- */
+const SCOPE_COLORS = { ir: cssVar('--ir') || '#ff6479', oled: cssVar('--oled') || '#86d6ff', line: cssVar('--line') || '#2a3647', muted: cssVar('--muted') || '#9ba5b5' };
+function drawScope(nowMs) {
+  const c = ui.scope;
+  if (!c || !c.isConnected) return;
+  const dpr = Math.min(2, window.devicePixelRatio || 1), w = c.clientWidth, h = c.clientHeight;
+  if (!w || !h) return;
+  if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
+  const x = c.getContext('2d');
+  x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, w, h);
+  const now = nowMs / 1000, span = 6, left = 26, right = w - 8, pw = right - left;
+  const tx = t => left + pw * (1 - (now - t) / span);
+  x.strokeStyle = SCOPE_COLORS.line; x.lineWidth = 1;
+  for (let s = Math.ceil(now - span); s <= now; s++) { const xx = Math.round(tx(s)) + 0.5; x.beginPath(); x.moveTo(xx, 6); x.lineTo(xx, h - 6); x.stroke(); }
+  const band = (h - 18) / 2;
+  [['r', 'R', 6], ['l', 'L', 12 + band]].forEach(([key, label, top]) => {
+    const hi = top + 6, lo = top + band - 4;
+    x.fillStyle = SCOPE_COLORS.muted; x.font = '11px Silkscreen, "Courier New", monospace'; x.textBaseline = 'middle'; x.fillText(label, 8, (hi + lo) / 2);
+    x.strokeStyle = SCOPE_COLORS.ir; x.lineWidth = 2; x.lineJoin = 'round';
+    x.beginPath();
+    let prevY = null;
+    scope.samples.forEach(sm => {
+      const xx = tx(sm.t), yy = sm[key] ? hi : lo;
+      if (xx < left) return;
+      if (prevY === null) x.moveTo(xx, yy); else { x.lineTo(xx, prevY); x.lineTo(xx, yy); }
+      prevY = yy;
+    });
+    if (prevY === null) { x.moveTo(left, lo); prevY = lo; }
+    x.lineTo(right, prevY); x.stroke();
+  });
+  scope.events.forEach(ev => {
+    const xx = tx(ev.t); if (xx < left) return;
+    x.strokeStyle = SCOPE_COLORS.oled; x.setLineDash([3, 3]); x.lineWidth = 1;
+    x.beginPath(); x.moveTo(xx, 4); x.lineTo(xx, h - 4); x.stroke(); x.setLineDash([]);
+    x.fillStyle = SCOPE_COLORS.oled; x.font = '11px Silkscreen, "Courier New", monospace'; x.textBaseline = 'top';
+    x.fillText(ev.d > 0 ? '+1' : '-1', xx + 4, 4);
+  });
+}
+
+/* =====================================================================
+   RESIZE + LOOP
+   ===================================================================== */
+const panelEl = $('#panel');
+function resize() {
+  const w = stageEl.clientWidth, h = stageEl.clientHeight;
+  if (!w || !h) return;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  const pr = panelEl.getBoundingClientRect(), sr = stageEl.getBoundingClientRect();
+  const overlay = pr.top < sr.bottom - 10 && pr.width < sr.width * 0.8;
+  const covered = overlay ? Math.max(0, pr.right - sr.left) : 0;
+  view.panelOffset = covered / 2;
+  view.aspect = (w - covered) / h;
+  view.w = w; view.h = h;
+  if (covered > 0) camera.setViewOffset(w, h, -covered / 2, 0, w, h); else camera.clearViewOffset();
+  camera.updateProjectionMatrix();
+}
+const ro = window.ResizeObserver ? new ResizeObserver(() => { const before = view.aspect; resize(); if (Math.abs(before - view.aspect) > 0.05 && !orbit.tween) goToView(SLIDES[state.slide].view, 0.6); }) : null;
+if (ro) { ro.observe(stageEl); ro.observe(panelEl); } else window.addEventListener('resize', resize);
+
+let last = performance.now(), firstFrame = true;
+function frame(now) {
+  const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  updateFlip(dt);
+  fwStep(now);
+  updateScene(dt, now);
+  drawOLED(now);
+  updateOrbit(dt, now);
+  if (pointer.dirty && !drag.active) {
+    pointer.dirty = false;
+    const id = pointer.inside ? pickAt(pointer.x, pointer.y) : null;
+    if (id !== state.hovered) { state.hovered = id; canvas.classList.toggle('pointing', !!id); }
+    if (!toastTimer) {
+      tipEl.hidden = !id;
+      if (id) { tipEl.textContent = PARTS[id].name; tipEl.style.transform = `translate(${pointer.x + 14}px, ${pointer.y + 14}px)`; }
+    }
+  }
+  renderer.render(scene, camera);
+  updateLabels();
+  drawScope(now);
+  if (firstFrame) { firstFrame = false; loadingEl.classList.add('done'); setTimeout(() => loadingEl.remove(), 700); }
+  requestAnimationFrame(frame);
+}
+
+/* fonts arrive after first paint: redraw the canvases that use them */
+if (document.fonts && document.fonts.load) {
+  Promise.all([document.fonts.load('800 100px "Archivo"'), document.fonts.load('italic 26px "Literata"'), document.fonts.load('11px "Silkscreen"')])
+    .then(() => { decal.userData.redraw(); paintBook(); }).catch(() => {});
+}
+
+/* debugging and the .glb export script use this */
+function settle() {
+  const tw = orbit.tween;
+  if (tw) { orbit.target.copy(tw.to.target); orbit.theta = tw.from.theta + tw.dTheta; orbit.phi = tw.to.phi; orbit.r = tw.to.r; orbit.tween = null; }
+  state.explode = state.explodeT; state.book = state.bookT; state.beams = state.beamsT; state.dims = state.dimsT; state.xrayF = state.xray ? 1 : 0;
+}
+window.BookCounter = { THREE, scene, camera, orbit, view, deviceRoot, go, settle, state, select: id => selectPart(id), setExplode: v => { state.explodeT = v; state.explode = v; applyExplode(v); lastExplodeApplied = v; }, sensorBeams: [sensorL.beam, sensorR.beam], dims: dimsGroup, flip: requestFlip, fw };
+
+function start(saved) {
+  resize();
+  let first = 0;
+  const m = /^#(\d{1,2})$/.exec(location.hash || '');
+  if (m) first = clamp(parseInt(m[1], 10) - 1, 0, SLIDES.length - 1);
+  if (saved && typeof saved.slide === 'number') first = clamp(saved.slide, 0, SLIDES.length - 1);
+  if (saved && typeof saved.pages === 'number') fw.pages = saved.pages;
+  applyExplode(0); lastExplodeApplied = 0;
+  go(first, { first: true });
+  state.explode = state.explodeT; state.book = state.bookT; state.beams = state.beamsT; state.dims = state.dimsT;
+  requestAnimationFrame(t => { last = t; frame(t); });
+}
+try { if (window.claude && window.claude.hot && window.claude.hot.snapshot) window.claude.hot.snapshot(() => ({ slide: state.slide, pages: fw.pages })); } catch (e) { /* ignore */ }
+if (window.claude && window.claude.hot && window.claude.hot.ready) window.claude.hot.ready(start);
+else start((window.claude && window.claude.hot && window.claude.hot.data) || {});
+})();
+</script>
+</body>
+</html>
