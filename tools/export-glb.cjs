@@ -30,15 +30,17 @@ const out = path.join(root, 'assets', 'book-counter.glb');
     const model = B.deviceRoot.clone(true);
     model.position.set(0, 0, 0);
     model.scale.setScalar(0.01); // the scene is in centimetres, glTF is in metres
-    model.updateMatrixWorld(true);
-    // centre the model on the origin so PowerPoint (and any viewer) rotates it about its middle
-    const centre = new THREE.Box3().setFromObject(model).getCenter(new THREE.Vector3());
-    model.position.sub(centre);
     model.traverse(o => {
       o.userData = {};
       if (o.isLineSegments) o.visible = false;                                         // dimension lines
       if (o.isMesh && o.material && o.material.blending === THREE.AdditiveBlending) o.visible = false; // IR beams
     });
+    model.updateMatrixWorld(true);
+    // centre the visible model on the origin so PowerPoint (and any viewer) rotates it about its middle;
+    // hidden helpers (beams, dimension lines) are left out of the measurement because they are not exported
+    const box = new THREE.Box3();
+    model.traverse(o => { if (o.isMesh && o.visible) box.expandByObject(o); });
+    model.position.sub(box.getCenter(new THREE.Vector3()));
     const scene = new THREE.Scene();
     scene.add(model);
     scene.updateMatrixWorld(true);

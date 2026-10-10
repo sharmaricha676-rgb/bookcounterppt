@@ -4,6 +4,7 @@ Sources (see the research notes in the conversation): the Open XML SDK model3d s
 AnimatedModel3DExample sample for am3d; PowerPoint-saved captures for the p14/p15/p159 transition wrappers.
 """
 import io
+import math
 import random
 import uuid
 
@@ -73,6 +74,14 @@ VIEWS = {
 }
 _model_part = {}
 
+# Framing follows the rules PowerPoint itself applies on insert (checked against the PowerPoint-written
+# 3dtestdot.pptx in the Open XML SDK): scale so the largest extent is 1 m, and put the camera where the
+# bounding sphere fills the 45 degree field of view. Measured from assets/book-counter.glb (centred, metres).
+GLB_LARGEST = 0.14186124856502247
+GLB_DIAGONAL = 0.17829139120487397
+MPU_N = round(1e6 / GLB_LARGEST)
+CAM_Z = round((0.5 * GLB_DIAGONAL * MPU_N / 1e6) / math.sin(math.radians(22.5)) * 36000000)
+
 TEMPLATE = '''<mc:AlternateContent xmlns:mc="{MC}">
   <mc:Choice xmlns:am3d="http://schemas.microsoft.com/office/drawing/2017/model3d" Requires="am3d">
     <p:graphicFrame>
@@ -80,7 +89,7 @@ TEMPLATE = '''<mc:AlternateContent xmlns:mc="{MC}">
         <p:cNvPr id="{ID}" name="{NAME}" descr="{DESCR}">
           <a:extLst><a:ext uri="{{FF2B5EF4-FFF2-40B4-BE49-F238E27FC236}}"><a16:creationId xmlns:a16="http://schemas.microsoft.com/office/drawing/2014/main" id="{GUID}"/></a:ext></a:extLst>
         </p:cNvPr>
-        <p:cNvGraphicFramePr/>
+        <p:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></p:cNvGraphicFramePr>
         <p:nvPr><p:extLst><p:ext uri="{{D42A27DB-BD31-4B8C-83A1-F6EECF244321}}"><p14:modId xmlns:p14="{P14}" val="{MODID}"/></p:ext></p:extLst></p:nvPr>
       </p:nvGraphicFramePr>
       <p:xfrm><a:off x="{X}" y="{Y}"/><a:ext cx="{CX}" cy="{CY}"/></p:xfrm>
@@ -89,7 +98,7 @@ TEMPLATE = '''<mc:AlternateContent xmlns:mc="{MC}">
           <am3d:model3d r:embed="{MODEL_RID}">
             <am3d:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="{CX}" cy="{CY}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></am3d:spPr>
             <am3d:camera>
-              <am3d:pos x="0" y="0" z="67740115"/>
+              <am3d:pos x="0" y="0" z="{CAMZ}"/>
               <am3d:up dx="0" dy="36000000" dz="0"/>
               <am3d:lookAt x="0" y="0" z="0"/>
               <am3d:perspective fov="2700000"/>
@@ -151,7 +160,8 @@ def add_model3d(prs, slide, glb_path, view, work, assets, x, y, w, h, name='!!mo
         MC=MC, P14=P14, ID=_next_id(slide), NAME=name, DESCR=descr,
         GUID='{' + str(uuid.uuid4()).upper() + '}', MODID=random.randint(1, 4294967295),
         X=X, Y=Y, CX=CX, CY=CY, MODEL_RID=model_rid, IMG_RID=img_rid,
-        MPU=4600000, AX=v['ax'], AY=v['ay'], AZ=v['az'], VP=int(round((CX ** 2 + CY ** 2) ** 0.5)))
+        MPU=MPU_N, CAMZ=CAM_Z, AX=v['ax'], AY=v['ay'], AZ=v['az'],
+        VP=min(CX, CY))  # bounding sphere spans the frame's short side, so no rotation clips the model
     el = _frag(xml)
     tree = slide.shapes._spTree
     ext = tree.find(qn('p:extLst'))
