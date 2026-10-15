@@ -169,10 +169,31 @@ const mkdir = d => fs.mkdirSync(d, { recursive: true });
     await page.close();
   }
 
+  if (want('fwd45')) {  // the last two forward turns, in parallel with the first three
+    const page = await open(browser, 960, 540, 1, 'center');
+    await labels(page, false);
+    await setSlide(page, 6, { pages: 3 });
+    await page.evaluate(() => { const B = window.BookCounter; B.book.left += 6; B.paintBook(); });
+    await frames(page, 2);
+    for (let k = 4; k <= 5; k++) { await flipFrames(page, `${OUT}/fwd${k}`, 1, 26); console.log('fwd', k, await page.evaluate(() => window.BookCounter.fw.pages)); }
+    await page.close();
+  }
+  if (want('back10')) {  // the last two by-hand flips, in parallel with the first three
+    const page = await open(browser, 960, 540, 1, 'center');
+    await labels(page, false);
+    await setSlide(page, 6, { pages: 2 });
+    await page.evaluate(() => { const B = window.BookCounter; B.book.left += 4; B.paintBook(); });
+    await frames(page, 2);
+    for (let k = 1; k >= 0; k--) { await flipFrames(page, `${OUT}/back${k}`, -1, 26); console.log('back', k, await page.evaluate(() => window.BookCounter.fw.pages)); }
+    await page.close();
+  }
   if (want('back')) {  // the by-hand flips on their own, so they can render in parallel with the forward ones
     const page = await open(browser, 960, 540, 1, 'center');
     await labels(page, false);
     await setSlide(page, 6, { pages: 5 });
+    // start where five forward turns leave the book, so the page numbers match the fwd GIFs
+    await page.evaluate(() => { const B = window.BookCounter; B.book.left += 10; B.paintBook(); });
+    await frames(page, 2);
     for (let k = 4; k >= 0; k--) { await flipFrames(page, `${OUT}/back${k}`, -1, 26); console.log('back', k, await page.evaluate(() => window.BookCounter.fw.pages)); }
     await page.close();
   }

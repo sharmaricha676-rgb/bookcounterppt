@@ -480,14 +480,14 @@ picture(s, f'{GIFS}/turner.gif', 6.75, 1.25, 6.1, 6.1 * 540 / 760, name='Page tu
         alt='The servo spins its rubber wheel and the page turns over')
 menu_pill(s)
 eyebrow(s, 'Automatic page turner')
-title(s, 'Press a button, the page turns', w=5.0)
+title(s, 'Press a button, the page turns', w=5.8)
 for i, (b, t) in enumerate([('Press.', 'You press the turn button.'),
                             ('Signal.', 'The Arduino tells the motor driver.'),
                             ('Power.', 'The motor driver powers the servo.'),
                             ('Spin.', 'The servo spins the rubber wheel.'),
                             ('Turn.', 'The wheel pushes the top page over.'),
                             ('Count.', 'Both IR sensors see it pass: +1.')]):
-    y = 2.2 + i * 0.6
+    y = 2.4 + i * 0.57
     badge = rect(s, ML, y, 0.42, 0.42, fill=C['accent'], radius=0.18)
     fill_tf(badge.text_frame, [P(str(i + 1), size=15, bold=True, font=MONO, color=C['ink'], align='center')], anchor='middle')
     text(s, ML + 0.6, y + 0.04, 4.2, 0.5, [P(runs=[dict(t=b + ' ', bold=True, color=C['text']), dict(t=t)], size=15, line=1.0)])

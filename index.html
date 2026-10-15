@@ -1858,7 +1858,7 @@ function settle() {
   if (tw) { orbit.target.copy(tw.to.target); orbit.theta = tw.from.theta + tw.dTheta; orbit.phi = tw.to.phi; orbit.r = tw.to.r; orbit.tween = null; }
   state.explode = state.explodeT; state.book = state.bookT; state.beams = state.beamsT; state.dims = state.dimsT; state.xrayF = state.xray ? 1 : 0;
 }
-window.BookCounter = { THREE, scene, camera, orbit, view, deviceRoot, go, settle, state, select: id => selectPart(id), setExplode: v => { state.explodeT = v; state.explode = v; applyExplode(v); lastExplodeApplied = v; }, sensorBeams: [sensorL.beam, sensorR.beam], dims: dimsGroup, flip: requestFlip, fw, turnerWheel };
+window.BookCounter = { THREE, scene, camera, orbit, view, deviceRoot, go, settle, state, select: id => selectPart(id), setExplode: v => { state.explodeT = v; state.explode = v; applyExplode(v); lastExplodeApplied = v; }, sensorBeams: [sensorL.beam, sensorR.beam], dims: dimsGroup, flip: requestFlip, fw, turnerWheel, book: bookState, paintBook };
 
 function start(saved) {
   resize();
