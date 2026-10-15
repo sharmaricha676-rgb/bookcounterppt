@@ -245,7 +245,7 @@ kbd{font-family:var(--font-mono);font-size:.78em;padding:1px 6px;border:1px soli
   <nav class="nav" aria-label="Slides">
     <button class="nav-btn" id="prev" aria-label="Previous slide"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
     <div class="segs" id="segs"></div>
-    <span class="count" id="count"><b>01</b> / 12</span>
+    <span class="count" id="count"><b>01</b> / 13</span>
     <button class="nav-btn" id="next" aria-label="Next slide"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
   </nav>
 
@@ -1047,6 +1047,7 @@ const NANO_TOP = 0.47;
   const rst = mesh(box(0.3, 0.12, 0.3), M.potScrew); rst.position.set(-0.75, 0.52, -0.3);
   const reg = mesh(box(0.34, 0.12, 0.3), M.black); reg.position.set(-1.25, 0.52, 0.42);
   const plug = mesh(box(0.95, 0.5, 0.7), M.usbGrey); plug.position.set(-2.85, 0.65, 0); // USB lead to the computer, through the wall
+  plug.userData.part = 'usb'; // rides on the Nano when the shell opens, but clicking it opens the USB power card
   nanoGroup.add(pcb, chip, usb, xtal, rst, reg, plug);
 }
 addPart('mcu', nanoGroup, new V3(0, 1.9, 0));
@@ -1202,6 +1203,11 @@ const pipeMesh = pipeGroup.children[0];
 });
 /* USB lead from the Nano, out through the left wall and across the desk to the computer */
 wire('#2b2f36', () => [ptIn(nanoGroup, -3.3, 0.65, 0), ptIn(nanoGroup, -4.4, 0.55, -0.3), new V3(-8.4, -1.6, -2.6), new V3(-9.6, -5.6, -4.5), new V3(-14, -5.83, -9), new V3(-30, -5.83, -16)], 0.17, 'usb-cable');
+// the USB lead is its own part (not a jumper wire); its points are in deviceRoot space and usbGroup sits at the origin
+const usbGroup = new THREE.Group();
+usbGroup.add(WIRE_DEFS[WIRE_DEFS.length - 1].m);
+addPart('usb', usbGroup);
+parts.usb.focus = [nanoGroup]; // 'Look closer' frames where the lead plugs in, not the whole cable across the desk
 function rebuildWires() {
   deviceRoot.updateMatrixWorld(true);
   WIRE_DEFS.forEach(w => {
@@ -1687,7 +1693,7 @@ function selectPart(id) {
   $('#cardText').textContent = p.text;
   const actions = $('#cardActions'); actions.innerHTML = '';
   const addBtn = (label, fn, primary) => { const b = document.createElement('button'); b.className = 'btn' + (primary ? ' primary' : ''); b.textContent = label; b.addEventListener('click', fn); actions.appendChild(b); };
-  addBtn('Look closer', () => focusOn(parts[id].groups), true);
+  addBtn('Look closer', () => focusOn(parts[id].focus || parts[id].groups), true);
   if ((id === 'button' || id === 'servo') && state.book > 0.6) addBtn('Press the turn button', () => requestFlip(1, true));
   if (id === 'shell') addBtn(state.explodeT ? 'Close the shell' : 'Open the shell', () => { toggleExplode(); selectPart('shell'); });
   if ((id === 'sensorL' || id === 'sensorR') && state.book > 0.6) addBtn('Turn a page', () => requestFlip(1));

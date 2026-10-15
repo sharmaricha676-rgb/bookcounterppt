@@ -169,6 +169,20 @@ const mkdir = d => fs.mkdirSync(d, { recursive: true });
     await page.close();
   }
 
+  if (want('job')) {  // JOB="fwd2,back0": each flip set up from scratch, so any split across workers lines up
+    const page = await open(browser, 960, 540, 1, 'center');
+    await labels(page, false);
+    await setSlide(page, 6, { pages: 0 });
+    for (const name of process.env.JOB.split(',')) {
+      const k = +name.replace(/\D/g, ''), fwd = name.startsWith('fwd');
+      const before = fwd ? k - 1 : k + 1;   // the count shown before this flip
+      await page.evaluate(n => { const B = window.BookCounter; B.fw.pages = n; B.book.left = 42 + 2 * n; B.paintBook(); }, before);
+      await frames(page, 2);
+      await flipFrames(page, `${OUT}/${name}`, fwd ? 1 : -1, 18);  // the flip is over by frame 17
+      console.log(name, await page.evaluate(() => window.BookCounter.fw.pages));
+    }
+    await page.close();
+  }
   if (want('fwd45')) {  // the last two forward turns, in parallel with the first three
     const page = await open(browser, 960, 540, 1, 'center');
     await labels(page, false);

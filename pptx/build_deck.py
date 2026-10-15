@@ -105,6 +105,7 @@ IMG = dict(
 SPOTS = json.load(open(f'{ASSETS}/hub_spots.json'))
 SPOTS['sensorL'] = [0.4825, 0.578]  # centre of each board rather than the LED tips
 SPOTS['sensorR'] = [0.725, 0.511]
+SPOTS['oled'] = [0.5625, 0.393]    # left end of the screen, so its dot clears the button's (they are 0.3 in apart)
 SPOTS['pipe'] = [0.815, 0.507]      # the part of the pipe you can see, outside the shell
 
 
@@ -535,7 +536,7 @@ button(s, ML + 3.6, 5.3, 2.4, 0.56, '◄  Back to the question', 'quiz', 'darkli
 def demo_slide(key, count, media, alt, status, hidden, last_dir):
     notes = {
         None: "This is the live demo. Click Press turn button: each click is one press of the real button, so the page turner "
-              "turns one page and the count goes up. Flip back by hand takes it down again. Reset goes back to zero.",
+              "turns one page and the count goes up. Flip back by hand takes it down again. Start over rewinds this demo to zero.",
         1: f"The page turner's wheel pushed the page over. It lifted off the right side first, then landed on the left. "
            f"Right then left: plus one. The count is now {count}.",
         -1: f"This time we flipped the page back by hand: left sensor first, then right. That means minus one. The count is now {count}.",
@@ -554,9 +555,9 @@ def demo_slide(key, count, media, alt, status, hidden, last_dir):
     prv = f'back{count - 1}' if count > 0 else None
     button(s, ML, 4.7, 2.35, 0.55, 'Press turn button  ►', nxt, 'primary' if nxt else 'disabled', size=13)
     button(s, ML + 2.5, 4.7, 2.15, 0.55, '◄  Flip back by hand', prv, 'secondary' if prv else 'disabled', size=12)
-    button(s, ML, 5.42, 1.3, 0.46, 'Reset', 'demo0' if count else None, 'ghost' if count else 'disabled', size=12)
+    button(s, ML, 5.42, 1.3, 0.46, 'Start over', 'demo0' if count else None, 'ghost' if count else 'disabled', size=12)
     button(s, ML + 1.45, 5.42, 1.7, 0.46, 'Continue  ►', 'logic', 'ghost', size=12)
-    hint = 'Each click is one press of the turn button.' if count < 5 else 'Five pages. Press Reset to start again.'
+    hint = 'Each click is one press of the turn button.' if count < 5 else 'Five pages. Click Start over to begin again.'
     text(s, ML, 6.15, 4.6, 0.4, [P(hint, size=12, color=C['muted'])])
 
 
@@ -605,7 +606,7 @@ s = new_slide('wiring', notes=(
     "and D3 on the Arduino. The OLED screen uses I²C, which needs only two data wires, on A4 and A5. "
     "The turn button is on D4. The Arduino sends the servo signal to the motor driver, and the servo cable runs through "
     "the pipe to the driver. Everything is powered by the USB cable from the computer."))
-full_bleed(s, IMG['wiring'], 'Top view of the opened shell with the Arduino Nano, battery and OLED labelled', dx=0.95)
+full_bleed(s, IMG['wiring'], 'Top view of the opened shell with the Arduino Nano, OLED, turn button, motor driver and USB power labelled', dx=0.95)
 menu_pill(s)
 eyebrow(s, 'Circuit')
 title(s, 'Wiring')
