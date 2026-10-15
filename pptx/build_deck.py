@@ -99,11 +99,13 @@ IMG = dict(
     th_tour=crop_square(f'{ASSETS}/spin/009.png', 0.5, 0.5, 430, 'th_tour.jpg'),
     th_demo=crop_square(f'{ASSETS}/fwd1/012.png', 0.5, 0.52, 470, 'th_demo.jpg'),
     th_quiz=crop_square(f'{ASSETS}/sensor/012.png', 0.5, 0.5, 430, 'th_quiz.jpg'),
+    th_turner=crop_square(f'{ASSETS}/turner/012.png', 0.62, 0.55, 430, 'th_turner.jpg'),
     th_build=crop_square(f'{ASSETS}/dims.png', 0.68, 0.5, 700, 'th_build.jpg'),
 )
 SPOTS = json.load(open(f'{ASSETS}/hub_spots.json'))
-SPOTS['sensorL'] = [0.545, 0.68]   # centre of the board rather than the LED tips
-SPOTS['sensorR'] = [0.893, 0.578]
+SPOTS['sensorL'] = [0.4825, 0.578]  # centre of each board rather than the LED tips
+SPOTS['sensorR'] = [0.725, 0.511]
+SPOTS['pipe'] = [0.815, 0.507]      # the part of the pipe you can see, outside the shell
 
 
 # ---------------------------------------------------------------- building blocks
@@ -252,15 +254,16 @@ def gif(s, path, x, y, w, alt, name=None):
 # ================================================================ slides
 # 1 ---------------------------------------------------------------- title
 s = new_slide('title', notes=(
-    "Hello everyone. This is Book Counter, a bookmark we designed and 3D-printed that counts the pages you turn. "
+    "Hello everyone. This is Book Counter, a bookmark we designed and 3D-printed that counts the pages you turn, "
+    "and with its automatic page turner it can turn the page for you at the press of a button. "
     "This presentation is interactive: the buttons work during the slide show. Click Start, or press the right arrow."))
 gif(s, f'{GIFS}/spin.gif', 5.45, 1.2, 7.75, 'The Book Counter turning on a turntable', name='Spinning model')
 eyebrow(s, '3D-printed smart bookmark', y=1.55)
 text(s, ML, 1.9, 5.2, 1.9, [P('BOOK', size=60, bold=True, font=HEAD, color=C['text'], line=0.88),
                             P('COUNTER', size=60, bold=True, font=HEAD, color=C['text'], line=0.88)])
-text(s, ML, 3.85, 4.7, 0.9, [P('A bookmark that counts every page you turn and shows the total on its own screen.',
+text(s, ML, 3.85, 4.7, 0.9, [P('A bookmark that counts every page you turn, and turns the page for you at the press of a button.',
                                size=18, color=C['body'], line=1.1)])
-for i, (num, lab) in enumerate([('2', 'IR sensors'), ('0.96"', 'OLED screen'), ('1', 'printed shell')]):
+for i, (num, lab) in enumerate([('2', 'IR sensors'), ('0.96"', 'OLED screen'), ('1', 'page turner')]):
     chip = rect(s, ML + i * 1.55, 4.95, 1.42, 0.82, fill=None, line=C['line'], radius=0.12)
     fill_tf(chip.text_frame, [P(num, size=18, bold=True, font=MONO, color=C['accent']),
                               P(lab, size=11, bold=True, font=HEAD, color=C['muted'])], anchor='middle',
@@ -280,7 +283,7 @@ TILES = [
     ('CLICK THE PARTS', 'The device', 'Explore it piece by piece', 'hub', 'th_parts'),
     ('REAL 3D', '3D tour', 'A 3D model you can turn', 'tour1', 'th_tour'),
     ('TRY IT', 'Live demo', 'Turn pages, watch it count', 'demo0', 'th_demo'),
-    ('AUDIENCE', 'Quick quiz', 'One question about the sensors', 'quiz', 'th_quiz'),
+    ('PRESS A BUTTON', 'Page turner', 'It turns the page for you', 'turner', 'th_turner'),
     ('HOW IT IS MADE', 'Build', 'Wiring and the printed shell', 'wiring', 'th_build'),
 ]
 for i, (lab, name, desc, target, th) in enumerate(TILES):
@@ -299,7 +302,8 @@ text(s, ML, 6.95, 9, 0.3, [P('Each tile is a button. Press → to go through eve
 s = new_slide('problem', notes=(
     "E-readers like a Kindle track exactly how much you read. Paper books don't. If you want a reading goal, "
     "like twenty pages a day, you have to remember where you started and do the maths yourself, and most people forget. "
-    "Reading apps help, but you still have to type your pages in every time."))
+    "Reading apps help, but you still have to type your pages in every time. And turning pages needs a free hand, "
+    "which is not always easy."))
 full_bleed(s, IMG['problem'], 'An open book on a desk with the Book Counter above its top edge')
 menu_pill(s)
 eyebrow(s, 'Why we built it')
@@ -308,50 +312,60 @@ text(s, ML, 2.55, 4.3, 0.8, [P("An e-reader knows how far you got. A paper book 
 text(s, ML, 3.55, 4.3, 2.4, [
     P(runs=[dict(t='•  ', color=C['accent']), dict(t='Reading goals need numbers: pages a day, pages a week.')], size=16, after=10, line=1.1),
     P(runs=[dict(t='•  ', color=C['accent']), dict(t='Page numbers written down by hand get forgotten.')], size=16, after=10, line=1.1),
-    P(runs=[dict(t='•  ', color=C['accent']), dict(t='Reading apps make you type in every session.')], size=16, line=1.1)])
+    P(runs=[dict(t='•  ', color=C['accent']), dict(t='Reading apps make you type in every session.')], size=16, after=10, line=1.1),
+    P(runs=[dict(t='•  ', color=C['accent']), dict(t='Turning pages needs a free hand.')], size=16, line=1.1)])
 
 # 4 ---------------------------------------------------------------- idea
 s = new_slide('idea', bg=C['accent'], notes=(
     "So our idea was simple: make the bookmark do the counting. You put it on your book, read normally, "
-    "and it counts every page you turn by itself."))
+    "and it counts every page you turn by itself. Then we went one step further and made it turn the page too."))
 menu_pill(s, 'darkline')
 eyebrow(s, 'The idea', color=C['ink'], y=1.6)
 text(s, ML, 2.05, 11.6, 2.4, [P('What if the bookmark kept count for you?', size=56, bold=True, font=HEAD, color=C['ink'], line=0.95)])
-text(s, ML, 4.6, 9.5, 1.0, [P('Book Counter sits at the top of the book and counts each page as you turn it. '
-                              'No buttons to press, no app, nothing to write down.', size=20, color='1B2A3A', line=1.15)])
+text(s, ML, 4.6, 9.8, 1.0, [P('Book Counter sits at the top of the book and counts each page as it turns. '
+                              'Press its button and it even turns the page for you.', size=20, color='1B2A3A', line=1.15)])
 button(s, ML, 5.95, 2.6, 0.55, 'Meet the device  ►', 'hub', 'dark', size=14)
 
 # 5 ---------------------------------------------------------------- hub with hotspots
-PARTS = [
+PARTS = [  # key, name, spec, description, (label dx, dy, width) from the dot, speaker note
     ('oled', 'OLED display', '0.96" OLED · 128 × 64 px · SSD1306 · I²C',
      'Shows the running page count. It needs only two data wires, SDA and SCL, to the microcontroller.',
-     (7.0, 2.1, 1.6), 'This is the screen. It shows the count, and it only needs two data wires to talk to the Arduino.'),
-    ('button', 'Reset button', '6 mm push button',
-     'Press it to set the count back to zero at the start of a reading session.',
-     (9.75, 1.85, 1.6), 'The reset button sets the count back to zero when you start a new reading session.'),
+     (-1.72, -1.03, 1.6), 'This is the screen. It shows the count, and it only needs two data wires to talk to the Arduino.'),
+    ('button', 'Turn button', '6 mm push button',
+     'Press it and the automatic page turner turns one page for you. The sensors then count that page like any other.',
+     (0.55, -1.33, 1.55), 'This is the turn button. Press it and the page turner turns one page for you.'),
     ('shell', '3D-printed shell', 'PLA · 105 × 60 × 35 mm · two pieces',
-     'A base tray and a top plate with cut-outs for the screen, the button and the two sensor cables. '
+     'A base tray and a top plate with cut-outs for the screen, the button and the sensor cables. '
      'BOOK COUNTER is embossed on the front.',
-     (8.65, 5.9, 1.95), 'We designed this shell and printed it in two pieces, with the name embossed on the front.'),
+     (-0.83, 1.53, 1.95), 'We designed this shell and printed it in two pieces, with the name embossed on the front.'),
     ('sensorL', 'IR sensor, left', 'IR obstacle module (FC-51) · LM393',
-     'Watches the left side of the book. When you read forward, it sees the page second, as the page lands.',
-     (5.4, 6.3, 1.75), 'The left sensor sees the page second when you turn forward, as the page lands on the left.'),
+     'Watches the left side of the book. When a page goes forward, it sees the page second, as the page lands.',
+     (-1.23, 1.62, 1.75), 'The left sensor sees the page second when it goes forward, as the page lands on the left.'),
     ('sensorR', 'IR sensor, right', 'IR obstacle module (FC-51) · LM393',
-     'Watches the right side of the book. When you read forward, it sees the page first, as you lift it.',
-     (10.95, 6.2, 1.75), 'The right sensor sees the page first when you turn forward, as you lift it off the right side.'),
+     'Watches the right side of the book. When a page goes forward, it sees the page first, as it lifts.',
+     (-0.22, 2.12, 1.75), 'The right sensor sees the page first when it goes forward, as the page lifts off the right side.'),
+    ('pipe', 'Pipe', '3D-printed · 180 × 16 × 13 mm · hollow',
+     'A hollow printed pipe joins the shell to the page turner and holds it over the page. The servo cable runs inside it.',
+     (-0.27, -1.05, 0.9), 'This hollow pipe is 3D-printed too. It holds the page turner out over the page, and the servo cable runs inside it.'),
+    ('servo', 'Page turner', 'Servo motor (SG90 size) · rubber wheel',
+     'When the turn button is pressed, the motor driver powers the servo, the servo spins the rubber wheel, '
+     'and the wheel pushes the top page over.',
+     (-0.74, 0.69, 1.6), 'This is the automatic page turner: a servo motor that spins a rubber wheel resting on the page.'),
 ]
 s = new_slide('hub', notes=(
-    "Here's the device. Everything you can see from outside has one job. "
+    "Here's the device. Everything you can see has one job, including the page turner on its pipe. "
     "Click any label, or any blue dot, to zoom in on that part. Each close-up has a Back button."))
-picture(s, IMG['hub'], 0, 0, W_IN, H_IN, name='!!device', alt='The Book Counter: white printed box, OLED window, reset button and two blue IR sensor boards')
+picture(s, IMG['hub'], 0, 0, W_IN, H_IN, name='!!device', alt='The Book Counter: white printed box with OLED window, turn button, two blue IR sensor boards, and a pipe holding the servo page turner')
 menu_pill(s)
 eyebrow(s, 'The device')
-title(s, 'Two eyes, one screen')
-text(s, ML, 2.55, 4.6, 1.2, [P('Click any part of the model to look closer.', size=18, color=C['body'], line=1.1, after=8),
+title(s, 'Two eyes, a screen and a hand', w=4.8)
+text(s, ML, 2.75, 4.6, 1.2, [P('Click any part of the model to look closer.', size=18, color=C['body'], line=1.1, after=8),
                              P('Every label and blue dot is a button.', size=14, color=C['muted'])])
-for key, name, spec, desc, (px, py, pw), _ in PARTS:
+for key, name, spec, desc, (ox, oy, pw), _ in PARTS:
     u, v = SPOTS[key]
     dx, dy = u * W_IN, v * H_IN
+    px = min(W_IN - 0.45 - pw, max(5.2, dx + ox))
+    py = min(H_IN - 0.62, max(0.95, dy + oy))
     # leader from the dot to the nearest edge of its label
     lx = px + pw if px + pw < dx else (px if px > dx else dx)
     ly = py + 0.4 if py + 0.4 < dy else (py if py > dy else py + 0.2)
@@ -393,9 +407,9 @@ TOUR = [
      'In edit mode, click the model and drag the round arrow in its middle to spin it any way you like.', 'front'),
     ('tour2', 'The sensor arms', 'An IR board hangs off each front corner. Both look down towards the pages.',
      'The jumper wires go into the shell through two ports in the top plate.', 'side'),
-    ('tour3', 'Screen on top', 'The OLED window and the reset button sit on the top plate, where you can see them while reading.',
+    ('tour3', 'Screen on top', 'The OLED window and the turn button sit on the top plate, where you can reach them while reading.',
      'The screen shows the count in big pixel digits.', 'top'),
-    ('tour4', 'All the way round', 'From behind you can see the power switch and the two cable ports.',
+    ('tour4', 'All the way round', 'From here you can see the pipe that carries the page turner out over the page.',
      'Press → to continue, or click Menu to jump somewhere else.', 'back'),
 ]
 for i, (key, ttl, line1, line2, view) in enumerate(TOUR):
@@ -418,8 +432,8 @@ for i, (key, ttl, line1, line2, view) in enumerate(TOUR):
 # 15 --------------------------------------------------------------- inside
 s = new_slide('inside', notes=(
     "If we lift the top plate off, you can see the inside. The microcontroller is an Arduino Nano: it reads the sensors "
-    "and keeps the count. The OLED screen is mounted under the window in the top plate. A battery powers everything, "
-    "with a switch to turn it off. The sensor wires come in through two holes in the top."))
+    "and keeps the count. The OLED screen is mounted under the window in the top plate. The red board is the motor driver "
+    "for the page turner. There is no battery: everything runs from a USB cable plugged into the computer."))
 gif(s, f'{GIFS}/explode.gif', 5.55, 1.3, 7.4, 'The shell opening up to show the parts inside, then closing again', name='Exploded view')
 menu_pill(s)
 eyebrow(s, 'Inside the shell')
@@ -427,8 +441,8 @@ title(s, "What's inside")
 text(s, ML, 2.0, 4.8, 0.8, [P('Lift off the top plate and four parts do the real work.', size=17, color=C['body'], line=1.1)])
 for i, (nm, ds) in enumerate([('Microcontroller', 'Arduino Nano. Reads, decides, counts.'),
                               ('OLED display', '0.96", under the window.'),
-                              ('Battery', '9 V, with a power switch.'),
-                              ('Jumper wires', 'Bring both sensor signals in.')]):
+                              ('Motor driver', 'Gives the servo the power to move.'),
+                              ('USB power', 'No battery: runs from the computer.')]):
     col, row = i % 2, i // 2
     card = rect(s, ML + col * 2.48, 3.0 + row * 1.32, 2.36, 1.18, fill=C['bg2'], line=C['line'], radius=0.1)
     fill_tf(card.text_frame, [P(nm, size=15, bold=True, font=HEAD, color=C['text'], after=4),
@@ -454,9 +468,35 @@ for i, (b, t) in enumerate([('Send.', 'The clear LED shines infrared light.'),
     fill_tf(badge.text_frame, [P(str(i + 1), size=16, bold=True, font=MONO, color=C['ink'], align='center')], anchor='middle')
     text(s, ML + 0.65, y + 0.02, 4.0, 0.7, [P(runs=[dict(t=b + ' ', bold=True, color=C['text']), dict(t=t)], size=16, line=1.05)])
 text(s, ML, 5.2, 4.6, 0.7, [P('The blue trimmer sets how close a page must come. Real IR is invisible; red shows the beam.', size=12, color=C['muted'], line=1.1)])
-button(s, ML, 6.05, 2.3, 0.5, 'Quick quiz  ►', 'quiz', 'primary', size=13)
+button(s, ML, 6.05, 2.3, 0.5, 'Page turner  ►', 'turner', 'primary', size=13)
 
-# 17 --------------------------------------------------------------- quiz
+# 17 --------------------------------------------------------------- automatic page turner
+s = new_slide('turner', notes=(
+    "This is our automatic page turner. When you press the turn button, the Arduino sends a signal to the motor driver. "
+    "The motor driver powers the servo motor, and the servo spins a rubber wheel that rests on the page. The wheel grips "
+    "the top page and pushes it over. Because the page passes both IR sensors, it gets counted just like a page you turn "
+    "by hand. The servo hangs from a hollow 3D-printed pipe, and its cable runs inside the pipe."))
+picture(s, f'{GIFS}/turner.gif', 6.75, 1.25, 6.1, 6.1 * 540 / 760, name='Page turner view',
+        alt='The servo spins its rubber wheel and the page turns over')
+menu_pill(s)
+eyebrow(s, 'Automatic page turner')
+title(s, 'Press a button, the page turns', w=5.0)
+for i, (b, t) in enumerate([('Press.', 'You press the turn button.'),
+                            ('Signal.', 'The Arduino tells the motor driver.'),
+                            ('Power.', 'The motor driver powers the servo.'),
+                            ('Spin.', 'The servo spins the rubber wheel.'),
+                            ('Turn.', 'The wheel pushes the top page over.'),
+                            ('Count.', 'Both IR sensors see it pass: +1.')]):
+    y = 2.2 + i * 0.6
+    badge = rect(s, ML, y, 0.42, 0.42, fill=C['accent'], radius=0.18)
+    fill_tf(badge.text_frame, [P(str(i + 1), size=15, bold=True, font=MONO, color=C['ink'], align='center')], anchor='middle')
+    text(s, ML + 0.6, y + 0.04, 4.2, 0.5, [P(runs=[dict(t=b + ' ', bold=True, color=C['text']), dict(t=t)], size=15, line=1.0)])
+text(s, ML, 5.85, 4.7, 0.5, [P('The servo hangs from a hollow 3D-printed pipe, 180 × 16 × 13 mm. Its cable runs inside.',
+                              size=12, color=C['muted'], line=1.1)])
+button(s, ML, 6.45, 2.3, 0.48, 'Quick quiz  ►', 'quiz', 'primary', size=13)
+button(s, ML + 2.45, 6.45, 2.3, 0.48, 'Try it in the demo  ►', 'demo0', 'secondary', size=13)
+
+# 18 --------------------------------------------------------------- quiz
 s = new_slide('quiz', bg=C['bg2'], notes=(
     "Quick question for the audience: when you turn a page forward, which sensor sees it first? "
     "Let someone answer, then click the button they chose."))
@@ -494,10 +534,11 @@ button(s, ML + 3.6, 5.3, 2.4, 0.56, '◄  Back to the question', 'quiz', 'darkli
 # 20-30 ------------------------------------------------------------ live demo: one slide per count
 def demo_slide(key, count, media, alt, status, hidden, last_dir):
     notes = {
-        None: "This is the live demo. Click Turn page: each click plays one page turn and the count goes up. "
-              "Flip back takes it down again. Reset goes back to zero. Continue moves on.",
-        1: f"The page lifted off the right side first, then landed on the left. Right then left: plus one. The count is now {count}.",
-        -1: f"This time the page went the other way: left sensor first, then right. That means minus one. The count is now {count}.",
+        None: "This is the live demo. Click Press turn button: each click is one press of the real button, so the page turner "
+              "turns one page and the count goes up. Flip back by hand takes it down again. Reset goes back to zero.",
+        1: f"The page turner's wheel pushed the page over. It lifted off the right side first, then landed on the left. "
+           f"Right then left: plus one. The count is now {count}.",
+        -1: f"This time we flipped the page back by hand: left sensor first, then right. That means minus one. The count is now {count}.",
     }[last_dir]
     s = new_slide(key, hidden=hidden, notes=notes)
     picture(s, media, 5.45, 1.3, 7.6, 7.6 * 9 / 16, name='Demo view', alt=alt)
@@ -511,22 +552,22 @@ def demo_slide(key, count, media, alt, status, hidden, last_dir):
     text(s, ML, 4.0, 4.6, 0.5, [P(status, size=15, color=C['body'])])
     nxt = f'fwd{count + 1}' if count < 5 else None
     prv = f'back{count - 1}' if count > 0 else None
-    button(s, ML, 4.7, 2.15, 0.55, 'Turn page  ►', nxt, 'primary' if nxt else 'disabled', size=14)
-    button(s, ML + 2.3, 4.7, 2.0, 0.55, '◄  Flip back', prv, 'secondary' if prv else 'disabled', size=14)
+    button(s, ML, 4.7, 2.35, 0.55, 'Press turn button  ►', nxt, 'primary' if nxt else 'disabled', size=13)
+    button(s, ML + 2.5, 4.7, 2.15, 0.55, '◄  Flip back by hand', prv, 'secondary' if prv else 'disabled', size=12)
     button(s, ML, 5.42, 1.3, 0.46, 'Reset', 'demo0' if count else None, 'ghost' if count else 'disabled', size=12)
     button(s, ML + 1.45, 5.42, 1.7, 0.46, 'Continue  ►', 'logic', 'ghost', size=12)
-    hint = 'Each click plays one page turn.' if count < 5 else 'Five pages. Press Reset to start again.'
+    hint = 'Each click is one press of the turn button.' if count < 5 else 'Five pages. Press Reset to start again.'
     text(s, ML, 6.15, 4.6, 0.4, [P(hint, size=12, color=C['muted'])])
 
 
-demo_slide('demo0', 0, IMG['demo0'], 'The open book with the Book Counter above it, count at zero',
-           'Ready. Click Turn page.', False, None)
+demo_slide('demo0', 0, IMG['demo0'], 'The open book with the Book Counter and its page turner above it, count at zero',
+           'Ready. Press the turn button.', False, None)
 for k in range(1, 6):
-    demo_slide(f'fwd{k}', k, f'{GIFS}/fwd{k}.gif', f'A page turning forward; the count goes from {k - 1} to {k}',
-               'Right sensor, then left sensor:  +1', True, 1)
+    demo_slide(f'fwd{k}', k, f'{GIFS}/fwd{k}.gif', f'The page turner turning a page forward; the count goes from {k - 1} to {k}',
+               'Page turner: right sensor, then left:  +1', True, 1)
 for k in range(4, -1, -1):
-    demo_slide(f'back{k}', k, f'{GIFS}/back{k}.gif', f'A page turning back; the count goes from {k + 1} to {k}',
-               'Left sensor, then right sensor:  −1', True, -1)
+    demo_slide(f'back{k}', k, f'{GIFS}/back{k}.gif', f'A page flipped back by hand; the count goes from {k + 1} to {k}',
+               'By hand: left sensor, then right:  −1', True, -1)
 
 # 31 --------------------------------------------------------------- logic
 s = new_slide('logic', notes=(
@@ -555,30 +596,33 @@ CODE = [
 ]
 fill_tf(code.text_frame, [P(runs=[dict(t=t, color=c) for t, c in ln], size=12, font=MONO, line=1.18) for ln in CODE],
         margins=(0.25, 0.25, 0.15, 0.2))
-text(s, ML, 5.95, 5.4, 0.4, [P('Simplified. The first sensor arms; the second one counts.', size=12, color=C['muted'])])
+text(s, ML, 5.95, 5.4, 0.6, [P('Simplified. The first sensor arms; the second one counts. The turn button only starts the servo: '
+                              'the page it turns is counted by this same code.', size=12, color=C['muted'], line=1.1)])
 
 # 32 --------------------------------------------------------------- wiring
 s = new_slide('wiring', notes=(
     "Here's how it's wired. Each sensor has three pins: power, ground and an output. The outputs go to digital pins D2 "
     "and D3 on the Arduino. The OLED screen uses I²C, which needs only two data wires, on A4 and A5. "
-    "The reset button is on D4, and the battery goes through the power switch into VIN."))
+    "The turn button is on D4. The Arduino sends the servo signal to the motor driver, and the servo cable runs through "
+    "the pipe to the driver. Everything is powered by the USB cable from the computer."))
 full_bleed(s, IMG['wiring'], 'Top view of the opened shell with the Arduino Nano, battery and OLED labelled', dx=0.95)
 menu_pill(s)
 eyebrow(s, 'Circuit')
 title(s, 'Wiring')
-ROWS = [('Part', 'Pin', 'Arduino'), ('IR sensor, left', 'OUT', 'D2'), ('IR sensor, right', 'OUT', 'D3'),
+ROWS = [('Part', 'Pin', 'Goes to'), ('IR sensor, left', 'OUT', 'D2'), ('IR sensor, right', 'OUT', 'D3'),
         ('Both IR sensors', 'VCC · GND', '5V · GND'), ('OLED display', 'SDA · SCL', 'A4 · A5'),
-        ('OLED display', 'VCC · GND', '5V · GND'), ('Reset button', 'leg 1 · leg 2', 'D4 · GND'),
-        ('Battery (via switch)', '+ · −', 'VIN · GND')]
-gf = s.shapes.add_table(len(ROWS), 3, Inches(ML), Inches(1.95), Inches(5.3), Inches(0.42 * len(ROWS)))
+        ('OLED display', 'VCC · GND', '5V · GND'), ('Turn button', 'leg 1 · leg 2', 'D4 · GND'),
+        ('Motor driver', 'signal in', 'D9'), ('Motor driver', 'VCC · GND', '5V · GND'),
+        ('Servo (in the pipe)', 'cable', 'motor driver'), ('Computer', 'USB cable', 'USB port')]
+gf = s.shapes.add_table(len(ROWS), 3, Inches(ML), Inches(1.95), Inches(5.3), Inches(0.36 * len(ROWS)))
 gf.name = 'Wiring table'
 tbl = gf.table
 tbl.first_row = True
 tbl.horz_banding = False
-for ci, wdt in enumerate((2.3, 1.5, 1.5)):
+for ci, wdt in enumerate((2.1, 1.4, 1.8)):
     tbl.columns[ci].width = Inches(wdt)
 for ri, row in enumerate(ROWS):
-    tbl.rows[ri].height = Inches(0.42)
+    tbl.rows[ri].height = Inches(0.36)
     for ci, val in enumerate(row):
         cell = tbl.cell(ri, ci)
         tcPr = cell._tc.get_or_add_tcPr()
@@ -600,40 +644,42 @@ for ri, row in enumerate(ROWS):
         fill_tf(cell.text_frame, [P(val.upper() if head else val, size=10 if head else 13, bold=head or ci == 2,
                                     font=HEAD if head else (MONO if ci == 2 else BODY), color=color,
                                     spacing=120 if head else None)], anchor='middle', margins=(0.1, 0.02, 0.06, 0.02))
-text(s, ML, 5.55, 5.2, 0.6, [P('Each sensor needs one digital pin. The screen shares the two-wire I²C bus.', size=12, color=C['muted'], line=1.1)])
+text(s, ML, 6.1, 5.2, 0.6, [P('No battery: the USB cable from the computer powers everything and uploads the code.', size=12, color=C['muted'], line=1.1)])
 
 # 33 --------------------------------------------------------------- build
 s = new_slide('build', notes=(
     "We designed the shell around the parts and 3D-printed it in white PLA. It's about 105 by 60 by 35 millimetres, "
     "in two pieces, a base and a top plate, so the electronics drop in from the top. The top plate has cut-outs for the "
-    "screen, the button and the sensor cables, and the name is embossed right into the front wall."))
+    "screen, the button and the sensor cables, and the name is embossed right into the front wall. "
+    "We also printed a hollow pipe, 180 millimetres long, that holds the page turner and carries its cable."))
 full_bleed(s, IMG['dims'], 'The shell with dimension lines: 105 mm wide, 60 mm deep, 35 mm tall', dx=0.75)
 menu_pill(s)
 eyebrow(s, 'Build')
 title(s, 'Designed and 3D-printed')
-FACTS = [('Size', '105 × 60 × 35 mm', True), ('Material', 'PLA, white', False), ('Pieces', 'Base tray and top plate', False),
+FACTS = [('Size', '105 × 60 × 35 mm', True), ('Material', 'PLA, white', False), ('Pieces', 'Base tray, top plate and pipe', False),
+         ('Pipe', '180 × 16 × 13 mm, hollow', True),
          ('Openings', 'Screen window, button hole, two cable ports', False), ('Lettering', 'BOOK COUNTER, embossed on the front', False)]
 for i, (k, v, mono) in enumerate(FACTS):
-    y = 2.6 + i * 0.72
+    y = 2.45 + i * 0.66
     line(s, ML, y, ML + 4.5, y, color=C['line'], width=0.75)
     text(s, ML, y + 0.14, 1.3, 0.4, [P(k.upper(), size=10, bold=True, font=HEAD, color=C['muted'], spacing=120)])
     text(s, ML + 1.4, y + 0.1, 3.1, 0.6, [P(v, size=14 if not mono else 15, bold=mono, font=MONO if mono else BODY,
                                              color=C['accent'] if mono else C['text'], line=1.05)])
-line(s, ML, 2.6 + 5 * 0.72, ML + 4.5, 2.6 + 5 * 0.72, color=C['line'], width=0.75)
+line(s, ML, 2.45 + len(FACTS) * 0.66, ML + 4.5, 2.45 + len(FACTS) * 0.66, color=C['line'], width=0.75)
 
 # 34 --------------------------------------------------------------- challenges
 s = new_slide('challenges', bg=C['bg2'], notes=(
     "A page counter sounds simple, but a few things have to be right. One page could trigger a sensor more than once, "
     "so we added a short lock-out. Flipping back shouldn't add pages, which is why we use two sensors instead of one. "
-    "Infrared also reflects off other things, so we tuned each sensor's range with its trimmer. And because pages curl "
-    "as they turn, the sensors watch the top edge where every page moves the same way."))
+    "Infrared also reflects off other things, so we tuned each sensor's range with its trimmer. And the page turner "
+    "must move exactly one page, so the servo only moves briefly and the soft wheel grips just the top page."))
 menu_pill(s)
 eyebrow(s, 'Design challenges')
 title(s, 'What a page counter has to get right', w=11.5, h=0.8)
 for i, (q, a) in enumerate([('One page could count twice.', 'A 400 ms lock-out after every count.'),
                             ('Flipping back must not add pages.', 'Two sensors, so the order of the hits gives the direction.'),
                             ('Room light and the page below reflect IR too.', "Trimmers tuned for a short range, aimed at the page's path."),
-                            ('Pages are thin and curl as they turn.', 'The sensors watch the top edge, where every page passes the same way.')]):
+                            ('The page turner must move exactly one page.', 'A short servo movement and a soft rubber wheel that grips only the top page.')]):
     col, row = i % 2, i // 2
     card = rect(s, ML + col * 6.0, 2.15 + row * 2.3, 5.75, 2.05, fill=C['bg'], line=C['line'], radius=0.07)
     fill_tf(card.text_frame, [P(q, size=19, bold=True, font=HEAD, color=C['text'], after=10, line=1.0),
@@ -643,15 +689,15 @@ for i, (q, a) in enumerate([('One page could count twice.', 'A 400 ms lock-out a
 # 35 --------------------------------------------------------------- next
 s = new_slide('next', notes=(
     "There's a lot we'd like to add next. Bluetooth, so each reading session goes to a phone app with graphs. "
-    "Reading speed in pages per minute. A rechargeable battery with USB-C. A custom circuit board to make it smaller, "
-    "and an adjustable clip so it fits any book."))
+    "Reading speed in pages per minute. A battery option so it works away from the computer. Letting the page turner "
+    "flip pages back as well, and an adjustable clip so it fits any book."))
 menu_pill(s)
 eyebrow(s, 'Next version')
 title(s, 'Where it goes next', w=10)
 for i, (k, v) in enumerate([('Bluetooth sync', 'Send each session to a phone app with daily and weekly graphs.'),
                             ('Reading speed', 'Show pages per minute right on the screen.'),
-                            ('Rechargeable', 'A lithium cell with USB-C charging instead of a 9 V battery.'),
-                            ('Smaller', 'A custom circuit board so the sensor arms fold flat.'),
+                            ('Battery option', 'A rechargeable cell so it also works away from the computer.'),
+                            ('Turn back too', 'Spin the wheel the other way to flip a page back.'),
                             ('Fits any book', 'An adjustable clip for thin paperbacks and thick textbooks.')]):
     y = 2.15 + i * 0.92
     line(s, ML, y, W_IN - ML, y, color=C['line'], width=0.75)

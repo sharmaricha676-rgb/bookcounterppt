@@ -31,6 +31,7 @@ const out = path.join(root, 'assets', 'book-counter.glb');
     model.position.set(0, 0, 0);
     model.scale.setScalar(0.01); // the scene is in centimetres, glTF is in metres
     model.traverse(o => {
+      if (o.name === 'usb-cable') o.visible = false;                                    // the lead across the desk
       o.userData = {};
       if (o.isLineSegments) o.visible = false;                                         // dimension lines
       if (o.isMesh && o.material && o.material.blending === THREE.AdditiveBlending) o.visible = false; // IR beams

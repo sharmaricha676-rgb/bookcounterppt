@@ -61,16 +61,6 @@ const mkdir = d => fs.mkdirSync(d, { recursive: true });
   const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 
   // ---------- stills, model right of centre (text goes on the left of the slide) ----------
-  if (want('stills2')) {
-    const p2 = await open(browser, 1600, 900, 1, 'right');
-    await labels(p2, true);
-    await setSlide(p2, 7); await p2.screenshot({ path: `${OUT}/wiring.png` });
-    await setSlide(p2, 8); await p2.screenshot({ path: `${OUT}/dims.png` });
-    await labels(p2, false);
-    await setSlide(p2, 10); await p2.screenshot({ path: `${OUT}/hero2.png` });
-    console.log('stills2 done');
-    await p2.close();
-  }
   if (want('stills')) {
     const page = await open(browser, 1280, 720, 2, 'right');
     await labels(page, false);
@@ -86,7 +76,9 @@ const mkdir = d => fs.mkdirSync(d, { recursive: true });
       const decal = base.children.find(m => m.material && m.material.alphaTest > 0);
       const screen = oled.children.find(m => m.material && m.material.type === 'MeshBasicMaterial');
       const sens = id => { const b = new THREE.Box3().setFromObject(groups(id)[0]); const c = b.getCenter(new THREE.Vector3()); c.y = b.min.y + (b.max.y - b.min.y) * 0.35; return c; };
-      return { oled: proj(worldOf(screen)), button: proj(worldOf(button).add(new THREE.Vector3(0, 0.3, 0))), shell: proj(worldOf(decal)), sensorL: proj(sens('sensorL')), sensorR: proj(sens('sensorR')) };
+      const wheel = B.turnerWheel.getWorldPosition(new THREE.Vector3());
+      const pipe = groups('pipe')[0].getWorldPosition(new THREE.Vector3());
+      return { oled: proj(worldOf(screen)), button: proj(worldOf(button).add(new THREE.Vector3(0, 0.3, 0))), shell: proj(worldOf(decal)), sensorL: proj(sens('sensorL')), sensorR: proj(sens('sensorR')), servo: proj(wheel), pipe: proj(pipe) };
     });
     fs.writeFileSync(`${OUT}/hub_spots.json`, JSON.stringify(spots, null, 2));
     console.log('hub + spots', JSON.stringify(spots));
@@ -95,12 +87,12 @@ const mkdir = d => fs.mkdirSync(d, { recursive: true });
     const p2 = await open(browser, 1600, 900, 1, 'right');
     await labels(p2, false);
     await setSlide(p2, 1); await p2.screenshot({ path: `${OUT}/problem.png` });
-    await setSlide(p2, 6, { pages: 27 }); await p2.screenshot({ path: `${OUT}/oled.png` });
+    await setSlide(p2, 7, { pages: 27 }); await p2.screenshot({ path: `${OUT}/oled.png` });
     await labels(p2, true);
-    await setSlide(p2, 7); await p2.screenshot({ path: `${OUT}/wiring.png` });
-    await setSlide(p2, 8); await p2.screenshot({ path: `${OUT}/dims.png` });
+    await setSlide(p2, 8); await p2.screenshot({ path: `${OUT}/wiring.png` });
+    await setSlide(p2, 9); await p2.screenshot({ path: `${OUT}/dims.png` });
     await labels(p2, false);
-    await setSlide(p2, 10); await p2.screenshot({ path: `${OUT}/hero2.png` });
+    await setSlide(p2, 11); await p2.screenshot({ path: `${OUT}/hero2.png` });
     await setSlide(p2, 0); await p2.screenshot({ path: `${OUT}/hero.png` });
     console.log('stills done');
     await p2.close();
@@ -114,7 +106,7 @@ const mkdir = d => fs.mkdirSync(d, { recursive: true });
     const base = await page.evaluate(() => ({ theta: window.BookCounter.orbit.theta, r: window.BookCounter.orbit.r }));
     const dir = `${OUT}/spin`; mkdir(dir);
     for (let i = 0; i < 36; i++) {
-      await page.evaluate(([t, r]) => { const o = window.BookCounter.orbit; o.theta = t; o.r = r; o.vt = 0; }, [base.theta + i * Math.PI * 2 / 36, 24]);
+      await page.evaluate(([t, r]) => { const o = window.BookCounter.orbit; o.theta = t; o.r = r; o.vt = 0; }, [base.theta + i * Math.PI * 2 / 36, 38]);
       await frames(page, 1);
       await page.screenshot({ path: `${dir}/${String(i).padStart(3, '0')}.png` });
     }
@@ -146,7 +138,7 @@ const mkdir = d => fs.mkdirSync(d, { recursive: true });
   async function flipFrames(page, dir, dirn, count) {
     mkdir(dir);
     await page.screenshot({ path: `${dir}/000.png` });
-    await page.evaluate(d => window.BookCounter.flip(d), dirn);
+    await page.evaluate(d => window.BookCounter.flip(d, d > 0), dirn);
     for (let i = 1; i < count; i++) {
       await tick(page, 70);
       await page.screenshot({ path: `${dir}/${String(i).padStart(3, '0')}.png` });
@@ -160,11 +152,28 @@ const mkdir = d => fs.mkdirSync(d, { recursive: true });
     console.log('sensor done');
     await page.close();
   }
+  if (want('turner')) {
+    const page = await open(browser, 960, 540, 1, 'center');
+    await labels(page, false);
+    await setSlide(page, 5);
+    await flipFrames(page, `${OUT}/turner`, 1, 26);
+    console.log('turner done');
+    await page.close();
+  }
   if (want('flips')) {
     const page = await open(browser, 960, 540, 1, 'center');
     await labels(page, false);
-    await setSlide(page, 5, { pages: 0 });
+    await setSlide(page, 6, { pages: 0 });
     for (let k = 1; k <= 5; k++) { await flipFrames(page, `${OUT}/fwd${k}`, 1, 26); console.log('fwd', k, await page.evaluate(() => window.BookCounter.fw.pages)); }
+    for (let k = 4; k >= 0; k--) { await flipFrames(page, `${OUT}/back${k}`, -1, 26); console.log('back', k, await page.evaluate(() => window.BookCounter.fw.pages)); }
+    await page.close();
+  }
+
+  if (want('back')) {  // the by-hand flips on their own, so they can render in parallel with the forward ones
+    const page = await open(browser, 960, 540, 1, 'center');
+    await labels(page, false);
+    await setSlide(page, 6, { pages: 5 });
+    for (let k = 4; k >= 0; k--) { await flipFrames(page, `${OUT}/back${k}`, -1, 26); console.log('back', k, await page.evaluate(() => window.BookCounter.fw.pages)); }
     await page.close();
   }
 

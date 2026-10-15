@@ -77,8 +77,8 @@ _model_part = {}
 # Framing follows the rules PowerPoint itself applies on insert (checked against the PowerPoint-written
 # 3dtestdot.pptx in the Open XML SDK): scale so the largest extent is 1 m, and put the camera where the
 # bounding sphere fills the 45 degree field of view. Measured from assets/book-counter.glb (centred, metres).
-GLB_LARGEST = 0.14186124856502247
-GLB_DIAGONAL = 0.17829139120487397
+GLB_LARGEST = 0.22293062380567408
+GLB_DIAGONAL = 0.2597342220727829
 MPU_N = round(1e6 / GLB_LARGEST)
 CAM_Z = round((0.5 * GLB_DIAGONAL * MPU_N / 1e6) / math.sin(math.radians(22.5)) * 36000000)
 

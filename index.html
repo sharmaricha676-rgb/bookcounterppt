@@ -258,7 +258,8 @@ kbd{font-family:var(--font-mono);font-size:.78em;padding:1px 6px;border:1px soli
         <dt><kbd>→</kbd> <kbd>Space</kbd></dt><dd>Next slide (clickers work too)</dd>
         <dt><kbd>←</kbd></dt><dd>Previous slide</dd>
         <dt><kbd>Home</kbd> <kbd>End</kbd></dt><dd>First or last slide</dd>
-        <dt><kbd>T</kbd> / <kbd>B</kbd></dt><dd>Turn a page forward or back (when the book is out)</dd>
+        <dt><kbd>A</kbd></dt><dd>Press the turn button: the page turner turns a page</dd>
+        <dt><kbd>T</kbd> / <kbd>B</kbd></dt><dd>Turn a page by hand, forward or back (when the book is out)</dd>
         <dt><kbd>E</kbd></dt><dd>Open or close the shell</dd>
         <dt><kbd>X</kbd></dt><dd>See through the shell</dd>
         <dt><kbd>S</kbd></dt><dd>Turntable on or off</dd>
@@ -291,36 +292,44 @@ kbd{font-family:var(--font-mono);font-size:.78em;padding:1px 6px;border:1px soli
 const CONFIG = {
   presenters: '',                      // e.g. 'Rishi Sharma · Class 10-B' (shown on the first and last slide)
   sizeMM: { w: 105, d: 60, h: 35 },    // outer size of the printed shell; the model is built from these
+  pipeMM: { l: 180, w: 16, h: 13 },    // the printed pipe to the page turner (from Smashing_Densor.stl)
   material: 'PLA',
   mcu: 'Arduino Nano',
   mcuChip: 'ATmega328P',
-  battery: '9 V battery',
+  power: 'USB cable from the computer · 5 V',
   display: '0.96″ OLED · 128 × 64 px · SSD1306 · I²C',
   sensor: 'IR obstacle module (FC-51) · LM393',
+  servo: 'Servo motor (SG90 size)',
+  driver: 'Motor driver board',
   lockoutMs: 400,                      // a new hit within this time after a count is ignored
   startPage: 42,                       // the demo book opens here (left page, even)
-  wiring: [                            // [part, its pin, Arduino pin]
+  wiring: [                            // [part, its pin, where it goes]
     ['IR sensor, left', 'OUT', 'D2'],
     ['IR sensor, right', 'OUT', 'D3'],
     ['Both IR sensors', 'VCC · GND', '5V · GND'],
     ['OLED display', 'SDA · SCL', 'A4 · A5'],
     ['OLED display', 'VCC · GND', '5V · GND'],
-    ['Reset button', 'leg 1 · leg 2', 'D4 · GND'],
-    ['Battery (via switch)', '+ · −', 'VIN · GND'],
+    ['Turn button', 'leg 1 · leg 2', 'D4 · GND'],
+    ['Motor driver', 'signal in', 'D9'],
+    ['Motor driver', 'VCC · GND', '5V · GND'],
+    ['Servo (cable in the pipe)', 'signal · + · −', 'motor driver'],
+    ['Computer', 'USB cable', 'USB port: power + code'],
   ],
 };
 
-const MM = CONFIG.sizeMM;
+const MM = CONFIG.sizeMM, PM = CONFIG.pipeMM;
 const PARTS = {
-  shell:   { name: '3D-printed shell', spec: `${CONFIG.material} · ${MM.w} × ${MM.d} × ${MM.h} mm`, text: 'A base tray and a top plate. The plate has cut-outs for the screen, the reset button and the two sensor cables. BOOK COUNTER is embossed on the front.' },
+  shell:   { name: '3D-printed shell', spec: `${CONFIG.material} · ${MM.w} × ${MM.d} × ${MM.h} mm`, text: 'A base tray and a top plate. The plate has cut-outs for the screen, the turn button and the two sensor cables, and the pipe enters the side. BOOK COUNTER is embossed on the front.' },
   oled:    { name: 'OLED display', spec: CONFIG.display, text: 'Shows the running page count. It needs only two data wires, SDA and SCL, to the microcontroller.' },
-  sensorL: { name: 'IR sensor, left', spec: CONFIG.sensor, text: 'Watches the left side of the book. When you read forward, it sees the page second, as the page lands.' },
-  sensorR: { name: 'IR sensor, right', spec: CONFIG.sensor, text: 'Watches the right side of the book. When you read forward, it sees the page first, as you lift it.' },
-  mcu:     { name: 'Microcontroller', spec: `${CONFIG.mcu} · ${CONFIG.mcuChip}`, text: 'Reads both sensors, works out which way the page went, keeps the count and draws it on the screen.' },
-  battery: { name: 'Battery', spec: CONFIG.battery, text: 'Powers the bookmark so it works away from a computer.' },
-  button:  { name: 'Reset button', spec: '6 mm push button', text: 'Press it to set the count back to zero at the start of a reading session.' },
-  power:   { name: 'Power switch', spec: 'Slide switch', text: 'Disconnects the battery when the bookmark is not in use.' },
-  wires:   { name: 'Jumper wires', spec: 'Dupont leads, 22 AWG', text: 'Carry power and the two sensor signals into the shell, and link the screen and button to the board.' },
+  sensorL: { name: 'IR sensor, left', spec: CONFIG.sensor, text: 'Watches the left side of the book. When a page goes forward, it sees the page second, as the page lands.' },
+  sensorR: { name: 'IR sensor, right', spec: CONFIG.sensor, text: 'Watches the right side of the book. When a page goes forward, it sees the page first, as it lifts.' },
+  mcu:     { name: 'Microcontroller', spec: `${CONFIG.mcu} · ${CONFIG.mcuChip}`, text: 'Reads both sensors and the turn button, tells the motor driver when to move the servo, keeps the count and draws it on the screen.' },
+  usb:     { name: 'USB power', spec: CONFIG.power, text: 'There is no battery. The bookmark runs from a USB cable plugged into the computer, the same cable we use to upload the code.' },
+  button:  { name: 'Turn button', spec: '6 mm push button', text: 'Press it and the automatic page turner turns one page for you. The sensors then count that page like any other.' },
+  driver:  { name: 'Motor driver', spec: CONFIG.driver, text: 'The Arduino’s pins can only give a small signal. The motor driver takes that signal and gives the servo the power it needs to move.' },
+  servo:   { name: 'Page turner', spec: `${CONFIG.servo} · rubber wheel`, text: 'When the turn button is pressed, the servo spins the rubber wheel. The wheel grips the top page and pushes it over.' },
+  pipe:    { name: 'Pipe', spec: `3D-printed · ${PM.l} × ${PM.w} × ${PM.h} mm · hollow`, text: 'A hollow printed pipe joins the shell to the page turner and holds it over the page. The servo cable runs inside it.' },
+  wires:   { name: 'Jumper wires', spec: 'Dupont leads, 22 AWG', text: 'Carry power and signals: the sensor leads come in through the top plate, and the servo cable runs through the pipe.' },
 };
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -336,8 +345,8 @@ const SLIDES = [
     html: `
       <p class="eyebrow">3D-printed smart bookmark</p>
       <h1 class="title title-xl">Book<br>Counter</h1>
-      <p class="lede">A bookmark that counts every page you turn and shows the total on its own screen.</p>
-      <ul class="chips"><li><b>2</b>IR sensors</li><li><b>0.96″</b>OLED screen</li><li><b>1</b>printed shell</li></ul>
+      <p class="lede">A bookmark that counts every page you turn, and turns the page for you at the press of a button.</p>
+      <ul class="chips"><li><b>2</b>IR sensors</li><li><b>0.96″</b>OLED screen</li><li><b>1</b>page turner</li></ul>
       ${presentersHTML}
       <p class="note">Press <kbd>→</kbd> to begin. Drag the model to turn it, scroll to zoom, click any part.</p>`,
   },
@@ -351,25 +360,28 @@ const SLIDES = [
         <li>Reading goals need numbers: pages a day, pages a week.</li>
         <li>Writing page numbers down by hand is easy to forget.</li>
         <li>Reading apps still make you type in every session.</li>
+        <li>Turning pages needs a free hand, which is not always easy.</li>
       </ul>
-      <p>Book Counter does the counting while you read. Nothing to type, nothing to remember.</p>`,
+      <p>Book Counter counts while you read, and can turn the page for you. Nothing to type, nothing to remember.</p>`,
   },
   {
-    nav: 'The device', view: 'device', labels: ['oled', 'button', 'shell', 'sensorL', 'sensorR'],
+    nav: 'The device', view: 'device', labels: ['oled', 'button', 'shell', 'sensorL', 'sensorR', 'pipe', 'servo'],
     html: `
       <p class="eyebrow">The device</p>
-      <h2 class="title">Two eyes, one screen</h2>
-      <p class="lede">A white printed shell rides at the top of the book. Everything you can see from the outside has one job.</p>
+      <h2 class="title">Two eyes, a screen and a hand</h2>
+      <p class="lede">A white printed shell rides at the top of the book, with a page turner on a pipe. Everything you can see has one job.</p>
       <div class="parts">
         ${partRow('oled', 'Shows the live page count')}
         ${partRow('sensorR', 'One on each side, watching the pages move', '×2')}
-        ${partRow('button', 'Starts a new reading session at zero')}
+        ${partRow('button', 'Press it and the page turns by itself')}
+        ${partRow('servo', 'A servo and a rubber wheel that push the page over')}
+        ${partRow('pipe', 'Holds the page turner and carries its cable')}
         ${partRow('shell', 'Holds everything, name embossed on the front')}
       </div>
       <p class="note">Click a row, or click the part on the model.</p>`,
   },
   {
-    nav: 'Inside', view: 'inside', explode: 1, labels: ['lid', 'oled', 'button', 'mcu', 'battery', 'power'],
+    nav: 'Inside', view: 'inside', explode: 1, labels: ['lid', 'oled', 'button', 'mcu', 'driver', 'usb'],
     html: `
       <p class="eyebrow">Inside the shell</p>
       <h2 class="title">What’s inside</h2>
@@ -377,8 +389,8 @@ const SLIDES = [
       <div class="parts">
         ${partRow('mcu', 'The brain: reads, decides, counts')}
         ${partRow('oled', 'Mounted under the window in the top plate')}
-        ${partRow('battery', 'Power for a whole reading session')}
-        ${partRow('wires', 'Sensor cables enter through two ports')}
+        ${partRow('driver', 'Gives the servo the power to move')}
+        ${partRow('usb', 'No battery: power comes from the computer')}
       </div>
       <p class="note">The <kbd>E</kbd> key or the Explode button opens the shell on any slide.</p>`,
   },
@@ -397,6 +409,22 @@ const SLIDES = [
       <button class="btn primary" data-action="turn">Turn a page to test it</button>`,
   },
   {
+    nav: 'Page turner', view: 'turner', book: true, beams: true, labels: ['servo', 'pipe'],
+    html: `
+      <p class="eyebrow">Automatic page turner</p>
+      <h2 class="title">Press a button, the page turns</h2>
+      <ol class="steps">
+        <li><span><b>Press.</b> You press the turn button on top.</span></li>
+        <li><span><b>Signal.</b> The Arduino sends a signal to the motor driver.</span></li>
+        <li><span><b>Power.</b> The motor driver powers the servo motor.</span></li>
+        <li><span><b>Spin.</b> The servo spins the rubber wheel resting on the page.</span></li>
+        <li><span><b>Turn.</b> The wheel grips the top page and pushes it over.</span></li>
+        <li><span><b>Count.</b> The page passes both IR sensors, so it is counted like any other: +1.</span></li>
+      </ol>
+      <button class="btn primary" data-action="auto">Press the turn button</button>
+      <p class="note">The servo hangs from a hollow 3D-printed pipe, ${PM.l} mm long. Its cable runs inside the pipe back to the motor driver.</p>`,
+  },
+  {
     nav: 'Live demo', view: 'demo', book: true, beams: true,
     html: `
       <p class="eyebrow">Live demo</p>
@@ -404,13 +432,14 @@ const SLIDES = [
       <p class="lede">A turning page sweeps past both sensors. Right then left means you read on. Left then right means you flipped back.</p>
       <div class="demo">
         <div class="readout"><span class="pix" data-bind="count3">000</span><span>pages<br>turned</span></div>
+        <button class="btn primary" data-action="auto">Press the turn button ▸</button>
         <div class="demo-buttons">
-          <button class="btn" data-action="back">◂ Flip back</button>
-          <button class="btn primary" data-action="turn">Turn page ▸</button>
+          <button class="btn" data-action="back">◂ Flip back by hand</button>
+          <button class="btn" data-action="turn">Turn by hand ▸</button>
         </div>
         <canvas class="scope" data-widget="scope" aria-label="Signals from the right and left sensors over the last six seconds"></canvas>
       </div>
-      <p class="note">Shortcuts: <kbd>T</kbd> turns a page, <kbd>B</kbd> flips back. The trace shows each sensor going ON as the page passes.</p>`,
+      <p class="note">Shortcuts: <kbd>A</kbd> presses the turn button, <kbd>T</kbd> turns by hand, <kbd>B</kbd> flips back. The trace shows each sensor going ON as the page passes.</p>`,
   },
   {
     nav: 'The logic', view: 'oled', book: true, beams: true,
@@ -440,16 +469,16 @@ const SLIDES = [
     armed = side;  <span class="c">// wait for the other sensor</span>
   }
 }</code></pre>
-      <p class="note">Simplified for the slide. Press <kbd>T</kbd> and watch the screen: the arrow shows the direction it decided on. LOCKOUT_MS is ${CONFIG.lockoutMs} ms.</p>`,
+      <p class="note">Simplified for the slide. The turn button only starts the servo; the page it turns is counted by this same code. Press <kbd>A</kbd> and watch the screen. LOCKOUT_MS is ${CONFIG.lockoutMs} ms.</p>`,
   },
   {
-    nav: 'Wiring', view: 'wiring', explode: 1, labels: ['mcu', 'oled', 'battery', 'button', 'power'],
+    nav: 'Wiring', view: 'wiring', explode: 1, labels: ['mcu', 'oled', 'button', 'driver', 'usb'],
     html: `
       <p class="eyebrow">Circuit</p>
       <h2 class="title">Wiring</h2>
-      <p class="lede">Everything plugs into the microcontroller. Each sensor needs one digital pin. The screen shares the two-wire I²C bus.</p>
+      <p class="lede">Everything plugs into the microcontroller. The servo is driven through the motor driver, and the whole bookmark runs on USB power from the computer.</p>
       <div class="table-wrap"><table class="pins">
-        <thead><tr><th scope="col">Part</th><th scope="col">Pin</th><th scope="col">Arduino</th></tr></thead>
+        <thead><tr><th scope="col">Part</th><th scope="col">Pin</th><th scope="col">Goes to</th></tr></thead>
         <tbody>${CONFIG.wiring.map(r => `<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`).join('')}</tbody>
       </table></div>
       <p class="note">The sensors sit on D2 and D3, the two pins on a Nano that can also wake the board with an interrupt.</p>`,
@@ -459,11 +488,12 @@ const SLIDES = [
     html: `
       <p class="eyebrow">Build</p>
       <h2 class="title">Designed and 3D-printed</h2>
-      <p class="lede">We modelled the shell around the parts, then printed it in two pieces so the electronics drop in from the top.</p>
+      <p class="lede">We modelled the shell around the parts and printed it in two pieces so the electronics drop in from the top. A separate printed pipe holds the page turner.</p>
       <dl class="facts">
         <div><dt>Outer size</dt><dd class="num">${MM.w} × ${MM.d} × ${MM.h} mm</dd></div>
         <div><dt>Material</dt><dd>${esc(CONFIG.material)}, white</dd></div>
-        <div><dt>Pieces</dt><dd>Base tray and top plate</dd></div>
+        <div><dt>Pieces</dt><dd>Base tray, top plate and the pipe</dd></div>
+        <div><dt>Pipe</dt><dd class="num">${PM.l} × ${PM.w} × ${PM.h} mm, hollow</dd></div>
         <div><dt>Openings</dt><dd>Screen window, button hole, two cable ports</dd></div>
         <div><dt>Lettering</dt><dd>BOOK COUNTER, embossed on the front wall</dd></div>
       </dl>
@@ -478,7 +508,7 @@ const SLIDES = [
         <div class="pair"><p class="q">One page could count twice.</p><p class="a">A ${CONFIG.lockoutMs} ms lock-out after every count.</p></div>
         <div class="pair"><p class="q">Flipping back must not add pages.</p><p class="a">Two sensors. The order of the hits gives the direction.</p></div>
         <div class="pair"><p class="q">Room light and the page underneath reflect IR too.</p><p class="a">Each trimmer is tuned for a short range, and the sensors aim at the path a turning page takes.</p></div>
-        <div class="pair"><p class="q">Pages are thin and curl as they turn.</p><p class="a">The sensors watch the top edge, where every page passes the same way.</p></div>
+        <div class="pair"><p class="q">The page turner must move exactly one page.</p><p class="a">A short servo movement and a soft rubber wheel that grips only the top page.</p></div>
       </div>`,
   },
   {
@@ -489,7 +519,8 @@ const SLIDES = [
       <ul class="list">
         <li><b>Bluetooth sync.</b> Send each session to a phone app with daily and weekly graphs.</li>
         <li><b>Reading speed.</b> Pages per minute, right on the screen.</li>
-        <li><b>Rechargeable.</b> A small lithium cell with USB-C charging.</li>
+        <li><b>Battery option.</b> A rechargeable cell so it also works away from the computer.</li>
+        <li><b>Turn back too.</b> Spin the wheel the other way to flip a page back.</li>
         <li><b>Smaller.</b> A custom circuit board so the sensor arms fold flat.</li>
         <li><b>Fits any book.</b> An adjustable clip for thin paperbacks and thick textbooks.</li>
       </ul>`,
@@ -702,15 +733,6 @@ function nanoCanvas() {
   x.font = '9px Arial, sans-serif'; x.fillText('V3.0', 330, 112);
   return c;
 }
-function batteryCanvas() {
-  const c = makeCanvas(480, 260), x = c.getContext('2d');
-  x.fillStyle = '#25282e'; x.fillRect(0, 0, 480, 260);
-  x.fillStyle = '#c47c3c'; x.fillRect(0, 0, 150, 260);
-  x.fillStyle = '#f3efe6'; x.font = 'bold 92px Arial, sans-serif'; x.textAlign = 'left'; x.fillText('9V', 196, 160);
-  x.font = 'bold 22px Arial, sans-serif'; x.fillText('ALKALINE', 200, 200);
-  x.fillStyle = '#1b1d22'; x.font = 'bold 26px Arial, sans-serif'; x.save(); x.translate(84, 130); x.rotate(-Math.PI / 2); x.textAlign = 'center'; x.fillText('+  POWER', 0, 9); x.restore();
-  return c;
-}
 
 /* ---------- OLED: a real 128 × 64 framebuffer drawn with a 5 × 7 pixel font ---------- */
 const GLYPHS = {
@@ -853,7 +875,12 @@ const M = {
   glass: new THREE.MeshPhysicalMaterial({ color: col('#05080c'), roughness: 0.08, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.05 }),
   screen: new THREE.MeshBasicMaterial({ map: oledTex, toneMapped: false }),
   ledClear: new THREE.MeshPhysicalMaterial({ color: col('#dfe9f4'), roughness: 0.06, metalness: 0, clearcoat: 1, transparent: true, opacity: 0.78 }),
-  battSide: std('#202329', 0.55),
+  driverPcb: std('#b8322e', 0.5),
+  terminal: std('#2f6fd6', 0.45),
+  servoBlue: new THREE.MeshPhysicalMaterial({ color: col('#2f62c9'), roughness: 0.35, metalness: 0, clearcoat: 0.6, transparent: true, opacity: 0.92 }),
+  rubber: std('#1c1e22', 0.9),
+  usbGrey: std('#2b2f36', 0.55),
+  pipePla: std('#f3f1ec', 0.58, 0, { envMapIntensity: 0.55 }),
   cap: std('#2b2e34', 0.62),
   smdRed: std('#ff3d3d', 0.4, 0, { emissive: col('#ff2a2a'), emissiveIntensity: 1.4 }),
   smdGreen: std('#1b7a42', 0.4, 0, { emissive: col('#3dff86'), emissiveIntensity: 0.0 }),
@@ -861,11 +888,6 @@ const M = {
   clothDark: std('#1b342d', 0.9),
   paperEdge: std('#ffffff', 0.95, 0, { map: edgeTex }),
 };
-(function batteryTop() {
-  const t = canvasTex(batteryCanvas());
-  t.repeat.set(1 / 4.8, 1 / 2.6); t.offset.set(0.5, 0.5);
-  M.battTop = std('#ffffff', 0.5, 0, { map: t });
-})();
 const wireMat = hex => std(hex, 0.45);
 
 function mesh(geo, mat) { const m = new THREE.Mesh(geo, mat); m.castShadow = true; m.receiveShadow = true; return m; }
@@ -998,7 +1020,7 @@ oledGroup.position.set(WIN.x, HB, WIN.z);
 }
 addPart('oled', oledGroup, new V3(0, 4.6, 0));
 
-/* --- reset button --- */
+/* --- turn button: starts the automatic page turner --- */
 const buttonGroup = new THREE.Group();
 buttonGroup.position.set(BTN.x, HB, BTN.z);
 const buttonCap = mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.34, 28), M.cap);
@@ -1011,16 +1033,6 @@ const buttonCap = mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.34, 28), M.cap);
 }
 addPart('button', buttonGroup, new V3(0, 3.4, 0));
 
-/* --- power switch on the back wall --- */
-const switchGroup = new THREE.Group();
-switchGroup.position.set(1.2, HB - 0.75, -D / 2);
-{
-  const body = mesh(box(1.15, 0.5, 0.42), M.black); body.position.z = -0.21;
-  const plate = mesh(box(1.3, 0.62, 0.04), M.metal); plate.position.z = -0.02;
-  const knob = mesh(box(0.34, 0.3, 0.32), M.cap); knob.position.set(-0.2, 0, -0.56);
-  switchGroup.add(body, plate, knob);
-}
-addPart('power', switchGroup, new V3(0, 1.0, -2.2));
 
 /* --- microcontroller (Arduino Nano) on the floor --- */
 const nanoGroup = new THREE.Group();
@@ -1034,7 +1046,8 @@ const NANO_TOP = 0.47;
   const xtal = mesh(box(0.36, 0.14, 0.16), M.metal); xtal.position.set(-0.75, 0.53, 0.38);
   const rst = mesh(box(0.3, 0.12, 0.3), M.potScrew); rst.position.set(-0.75, 0.52, -0.3);
   const reg = mesh(box(0.34, 0.12, 0.3), M.black); reg.position.set(-1.25, 0.52, 0.42);
-  nanoGroup.add(pcb, chip, usb, xtal, rst, reg);
+  const plug = mesh(box(0.95, 0.5, 0.7), M.usbGrey); plug.position.set(-2.85, 0.65, 0); // USB lead to the computer, through the wall
+  nanoGroup.add(pcb, chip, usb, xtal, rst, reg, plug);
 }
 addPart('mcu', nanoGroup, new V3(0, 1.9, 0));
 const nanoPin = name => {
@@ -1044,18 +1057,59 @@ const nanoPin = name => {
   return new V3(-1.78 + i * 0.254, NANO_TOP + 0.02, -0.76);
 };
 
-/* --- battery --- */
-const battGroup = new THREE.Group();
-battGroup.position.set(2.0, WALL, -1.05);
+/* --- motor driver: turns the Arduino's small signal into power for the servo --- */
+const driverGroup = new THREE.Group();
+driverGroup.position.set(2.6, WALL, -1.75);
 {
-  battGroup.add(mesh(roundedBlock(4.8, 2.6, 1.75, 0.22, 0.08), [M.battTop, M.battSide]));
-  const round = mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.22, 20), M.metal); round.rotation.z = Math.PI / 2; round.position.set(2.5, 0.95, 0.55);
-  const hex = mesh(new THREE.CylinderGeometry(0.27, 0.27, 0.18, 6), M.metal); hex.rotation.z = Math.PI / 2; hex.position.set(2.48, 0.95, -0.55);
-  const snap = mesh(box(0.32, 0.8, 1.95), M.black); snap.position.set(2.78, 0.95, 0);
-  battGroup.add(round, hex, snap);
+  const pcb = mesh(box(2.2, 0.16, 1.6), M.driverPcb); pcb.position.y = 0.18;
+  const chip = mesh(box(0.7, 0.12, 0.5), M.blackGloss); chip.position.set(-0.15, 0.32, 0);
+  const term = mesh(box(0.5, 0.42, 1.0), M.terminal); term.position.set(0.75, 0.47, 0);
+  const pins = mesh(box(0.25, 0.3, 0.9), M.black); pins.position.set(-0.85, 0.41, 0);
+  driverGroup.add(pcb, chip, term, pins);
 }
-addPart('battery', battGroup, new V3(0, 0.7, -0.6));
+addPart('driver', driverGroup, new V3(0, 1.2, -0.4));
 
+/* --- the printed pipe: the exact geometry of Smashing_Densor.stl (180 × 16 × 13 mm, hollow) --- */
+const PIPE_STL = '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';
+function stlGeometry(b64) {
+  const bin = Uint8Array.from(atob(b64), c => c.charCodeAt(0)), dv = new DataView(bin.buffer), n = dv.getUint32(80, true);
+  const pos = new Float32Array(n * 9);
+  for (let i = 0; i < n; i++) for (let k = 0; k < 9; k++) pos[i * 9 + k] = dv.getFloat32(84 + i * 50 + 12 + k * 4, true);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.computeVertexNormals();
+  return g;
+}
+const pipeGeo = stlGeometry(PIPE_STL);
+pipeGeo.rotateX(-Math.PI / 2);   // STL is Z-up, the scene is Y-up
+pipeGeo.scale(0.1, 0.1, 0.1);    // millimetres to centimetres
+pipeGeo.center();
+const PIPE_A = new V3(-2.9, 2.2, -1.4);  // inner end, inside the shell
+const PIPE_B = new V3(13.9, -1.18, 4.3); // outer end, above the right-hand page
+const pipeGroup = new THREE.Group();
+pipeGroup.add(mesh(pipeGeo, M.pipePla));
+pipeGroup.position.copy(PIPE_A).add(PIPE_B).multiplyScalar(0.5);
+pipeGroup.quaternion.setFromUnitVectors(new V3(1, 0, 0), PIPE_B.clone().sub(PIPE_A).normalize());
+addPart('pipe', pipeGroup);
+
+/* --- page turner: a servo hanging from the pipe, spinning a rubber wheel that rests on the page --- */
+const servoGroup = new THREE.Group();
+servoGroup.position.copy(PIPE_B);
+const turnerWheel = new THREE.Group();
+{
+  const add = (m, x, y, z) => { m.position.set(x, y, z); servoGroup.add(m); return m; };
+  add(mesh(box(1.2, 2.25, 2.25), M.servoBlue), 0, -1.775, 0);
+  add(mesh(box(1.2, 0.18, 3.2), M.servoBlue), 0, -1.2, 0);                                   // mounting tabs
+  add(mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.32, 20), M.potScrew), 0, -2.3, 1.28).rotation.x = Math.PI / 2;  // output shaft
+  turnerWheel.position.set(0, -2.3, 1.75);
+  servoGroup.add(turnerWheel);
+  const tyre = mesh(new THREE.CylinderGeometry(1.3, 1.3, 0.6, 40), M.rubber); tyre.rotation.x = Math.PI / 2;
+  const hub = mesh(new THREE.CylinderGeometry(0.72, 0.72, 0.64, 28), M.potScrew); hub.rotation.x = Math.PI / 2;
+  const spokeA = mesh(box(1.35, 0.2, 0.68), M.servoBlue), spokeB = mesh(box(0.2, 1.35, 0.68), M.servoBlue);
+  const mark = mesh(box(0.22, 0.32, 0.62), M.potScrew); mark.position.y = 1.12;            // so you can see it spin
+  turnerWheel.add(tyre, hub, spokeA, spokeB, mark);
+}
+addPart('servo', servoGroup);
 /* --- the two IR modules on the front corners --- */
 const beamAlpha = (() => {
   const c = makeCanvas(4, 128), x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 0, 128);
@@ -1111,7 +1165,7 @@ addPart('wires', wiresGroup);
 const tmpV = new V3();
 const ptIn = (obj, x, y, z) => deviceRoot.worldToLocal(obj.localToWorld(tmpV.set(x, y, z)).clone());
 const WIRE_DEFS = [];
-function wire(hex, fn) { const m = mesh(new THREE.BufferGeometry(), wireMat(hex)); m.castShadow = true; wiresGroup.add(m); WIRE_DEFS.push({ m, fn }); }
+function wire(hex, fn, r, name) { const m = mesh(new THREE.BufferGeometry(), wireMat(hex)); m.castShadow = true; if (name) m.name = name; wiresGroup.add(m); WIRE_DEFS.push({ m, fn, r: r || 0.065 }); }
 [[sensorL, -1, ['#8a63d2', '#e8e8e8', '#3fae5a']], [sensorR, 1, ['#9aa0a6', '#e8e8e8', '#3fae5a']]].forEach(([s, side, colors]) => {
   const pins = ['5V', 'GND', side < 0 ? 'D2' : 'D3'];
   [0, 1, 2].forEach(k => {
@@ -1136,14 +1190,23 @@ function wire(hex, fn) { const m = mesh(new THREE.BufferGeometry(), wireMat(hex)
 [['#e0823a', 'D4', -0.24], ['#26282c', 'GND', 0.24]].forEach(([hex, pin, x]) => {
   wire(hex, () => { const p = nanoPin(pin); return [ptIn(buttonGroup, x, -0.55, 0), ptIn(buttonGroup, x, -1.1, -0.1), ptIn(nanoGroup, p.x, p.y + 0.9, p.z + 0.2), ptIn(nanoGroup, p.x, p.y, p.z)]; });
 });
-wire('#d6453d', () => [ptIn(battGroup, 2.94, 1.15, 0.4), ptIn(battGroup, 3.1, 1.5, -0.6), ptIn(switchGroup, -0.3, 0.1, 0.9), ptIn(switchGroup, -0.3, 0, 0.05)]);
-wire('#d6453d', () => { const p = nanoPin('VIN'); return [ptIn(switchGroup, 0.3, 0, 0.05), ptIn(switchGroup, 0.3, 0.1, 0.9), ptIn(nanoGroup, p.x, p.y + 1.2, p.z - 0.5), ptIn(nanoGroup, p.x, p.y, p.z)]; });
-wire('#26282c', () => { const p = nanoPin('GND').add(new V3(0.05, 0, 0)); return [ptIn(battGroup, 2.94, 1.15, -0.4), ptIn(battGroup, 3.0, 1.9, 0.6), ptIn(nanoGroup, p.x + 0.6, p.y + 1.2, p.z + 0.3), ptIn(nanoGroup, p.x, p.y, p.z)]; });
+/* servo cable: out of the servo, through the pipe, into the motor driver's screw terminal */
+const pipeMesh = pipeGroup.children[0];
+[['#6b4a2b', -1], ['#d6453d', 0], ['#f08a24', 1]].forEach(([hex, k]) => {
+  wire(hex, () => [ptIn(servoGroup, 0.15 * k, -0.7, -1.0), ptIn(servoGroup, 0.15 * k, -0.15, -0.9), ptIn(pipeMesh, 9.6, 0.05 * k, 0.12 * k), ptIn(pipeMesh, 8.6, 0, 0.12 * k)]);
+  wire(hex, () => [ptIn(pipeMesh, -8.6, 0, 0.12 * k), ptIn(pipeMesh, -9.5, -0.1, 0.12 * k), ptIn(driverGroup, 0.75, 1.0, 0.3 * k), ptIn(driverGroup, 0.75, 0.68, 0.3 * k)]);
+});
+/* motor driver to the Arduino: signal on D9, plus 5 V and ground */
+[['#3fae5a', 'D9', -0.3], ['#d6453d', '5V', 0], ['#26282c', 'GND', 0.3]].forEach(([hex, pin, z]) => {
+  wire(hex, () => { const p = nanoPin(pin).add(new V3(0.08, 0, 0)); return [ptIn(driverGroup, -0.85, 0.56, z), ptIn(driverGroup, -1.4, 1.3, z), ptIn(nanoGroup, p.x, p.y + 1.0, p.z), ptIn(nanoGroup, p.x, p.y, p.z)]; });
+});
+/* USB lead from the Nano, out through the left wall and across the desk to the computer */
+wire('#2b2f36', () => [ptIn(nanoGroup, -3.3, 0.65, 0), ptIn(nanoGroup, -4.4, 0.55, -0.3), new V3(-8.4, -1.6, -2.6), new V3(-9.6, -5.6, -4.5), new V3(-14, -5.83, -9), new V3(-30, -5.83, -16)], 0.17, 'usb-cable');
 function rebuildWires() {
   deviceRoot.updateMatrixWorld(true);
   WIRE_DEFS.forEach(w => {
     const curve = new THREE.CatmullRomCurve3(w.fn(), false, 'centripetal');
-    const g = new THREE.TubeGeometry(curve, 48, 0.065, 6, false);
+    const g = new THREE.TubeGeometry(curve, 48, w.r, w.r > 0.1 ? 10 : 6, false);
     w.m.geometry.dispose(); w.m.geometry = g;
   });
 }
@@ -1294,23 +1357,20 @@ function fwStep(now) {
   while (scope.samples.length && scope.samples[0].t < cutoff) scope.samples.shift();
   while (scope.events.length && scope.events[0].t < cutoff) scope.events.shift();
 }
-function pressReset() {
-  fw.pages = 0; fw.armed = null; fw.resetUntil = performance.now() + 900;
-  buttonPress = 0.18;
-  syncCount();
-}
 let buttonPress = 0;
 
-function requestFlip(dir) {
+function requestFlip(dir, auto) {
   if (state.book < 0.6) { toast('Go to a slide with the book to turn pages.'); return; }
-  if (bookState.queue.length < 4) bookState.queue.push(dir);
+  if (auto) buttonPress = 0.18;
+  if (bookState.queue.length < 4) bookState.queue.push({ dir, auto: !!auto && dir > 0 });
 }
-function startFlip(dir) {
+function startFlip(item) {
+  const dir = item.dir;
   const L = bookState.left;
   if (dir < 0 && L - 2 < 2) return false;
   if (dir > 0) { paintPage('front', L + 1, 'R'); paintPage('back', L + 2, 'L'); paintPage('R', L + 3, 'R'); }
   else { paintPage('back', L, 'L'); paintPage('front', L - 1, 'R'); paintPage('L', L - 2, 'L'); }
-  bookState.active = { dir, t: 0, dur: reduceMotion ? 0.7 : 1.15 };
+  bookState.active = { dir, auto: item.auto, t: 0, dur: reduceMotion ? 0.7 : 1.15 };
   setLeaf(dir > 0 ? 0 : Math.PI, dir);
   leaf.visible = true;
   return true;
@@ -1323,6 +1383,7 @@ function updateFlip(dt) {
   const a = bookState.active;
   if (!a) { bookState.theta = null; return; }
   a.t = Math.min(1, a.t + dt / a.dur);
+  if (a.auto && a.t < 0.6) turnerWheel.rotation.z -= dt * 14;  // the wheel drags the page towards the spine
   const k = easeInOut(a.t), th = a.dir > 0 ? k * Math.PI : (1 - k) * Math.PI;
   bookState.theta = th;
   setLeaf(th, a.dir);
@@ -1338,16 +1399,17 @@ function updateFlip(dt) {
    ===================================================================== */
 const DC = DEVICE_POS.clone().add(new V3(0, H / 2, 0));
 const VIEWS = {
-  hero:   { t: [DC.x, DC.y - 0.9, DC.z], theta: 0.62, phi: 1.2, r: 33 },
-  hero2:  { t: [DC.x, DC.y - 0.9, DC.z], theta: -0.7, phi: 1.12, r: 33 },
-  device: { t: [DC.x, DC.y - 0.9, DC.z], theta: -0.36, phi: 1.12, r: 29 },
-  inside: { t: [DC.x, DC.y + 2.6, DC.z], theta: 0.52, phi: 1.04, r: 37 },
+  hero:   { t: [DC.x + 4.4, DC.y - 1.6, DC.z + 1.6], theta: 0.62, phi: 1.2, r: 46 },
+  hero2:  { t: [DC.x + 4.4, DC.y - 1.6, DC.z + 1.6], theta: -0.7, phi: 1.12, r: 46 },
+  device: { t: [DC.x + 4.2, DC.y - 1.5, DC.z + 1.6], theta: -0.36, phi: 1.12, r: 42 },
+  inside: { t: [DC.x + 1.5, DC.y + 2.4, DC.z], theta: 0.52, phi: 1.04, r: 41 },
+  turner: { t: [DC.x + 10.5, DC.y - 4.6, DC.z + 5.5], theta: 0.42, phi: 0.98, r: 30 },
   sensor: { t: [DC.x + W / 2 + 1.4, DC.y - 3.2, DC.z + D / 2 + 1.6], theta: 0.78, phi: 1.18, r: 25 },
   wide:   { t: [0, 2.5, -6], theta: 0.48, phi: 1.0, r: 56 },
   demo:   { t: [0, 2.6, -6.5], theta: 0.0, phi: 0.92, r: 55 },
   oled:   { t: [DC.x + WIN.x, DC.y + H / 2 - 1.2, DC.z + WIN.z + 2.6], theta: 0.0, phi: 0.58, r: 22 },
-  wiring: { t: [DC.x, DC.y + 2.4, DC.z + 0.5], theta: 0.05, phi: 0.62, r: 30 },
-  design: { t: [DC.x, DC.y - 0.3, DC.z], theta: 0.78, phi: 1.1, r: 24 },
+  wiring: { t: [DC.x + 2.0, DC.y + 2.4, DC.z + 0.5], theta: 0.05, phi: 0.62, r: 34 },
+  design: { t: [DC.x + 3.6, DC.y - 0.8, DC.z + 1.2], theta: 0.78, phi: 1.1, r: 38 },
   side:   { t: [0, 3.0, -7.5], theta: -0.62, phi: 0.98, r: 52 },
 };
 const orbit = { target: new V3(), theta: 0.6, phi: 1.15, r: 30, vt: 0, vp: 0, tween: null, lastUser: -1e9, view: null };
@@ -1527,8 +1589,10 @@ const LABELS = [
   { id: 'sensorL', part: 'sensorL', obj: sensorL.tilt, at: [0, -2.4, 0.1] },
   { id: 'sensorR', part: 'sensorR', obj: sensorR.tilt, at: [0, -2.4, 0.1] },
   { id: 'mcu', part: 'mcu', obj: nanoGroup, at: [0.8, 0.55, 0] },
-  { id: 'battery', part: 'battery', obj: battGroup, at: [-0.6, 1.75, 0] },
-  { id: 'power', part: 'power', obj: switchGroup, at: [-0.2, 0.2, -0.56] },
+  { id: 'driver', part: 'driver', obj: driverGroup, at: [0, 0.7, 0] },
+  { id: 'usb', part: 'usb', obj: nanoGroup, at: [-3.3, 0.95, 0] },
+  { id: 'servo', part: 'servo', obj: servoGroup, at: [0.6, -1.4, 1.1] },
+  { id: 'pipe', part: 'pipe', obj: pipeGroup, at: [3.5, 0.7, 0] },
 ];
 LABELS.forEach(l => {
   const el = document.createElement('div'); el.className = 'tag' + (l.down ? ' down' : ''); el.hidden = true;
@@ -1601,6 +1665,7 @@ function hydrate(root) {
   $$('[data-action]', root).forEach(b => b.addEventListener('click', () => {
     const a = b.dataset.action;
     if (a === 'turn') requestFlip(1);
+    if (a === 'auto') requestFlip(1, true);
     if (a === 'back') requestFlip(-1);
   }));
   ui.scope = $('[data-widget="scope"]', root);
@@ -1623,7 +1688,7 @@ function selectPart(id) {
   const actions = $('#cardActions'); actions.innerHTML = '';
   const addBtn = (label, fn, primary) => { const b = document.createElement('button'); b.className = 'btn' + (primary ? ' primary' : ''); b.textContent = label; b.addEventListener('click', fn); actions.appendChild(b); };
   addBtn('Look closer', () => focusOn(parts[id].groups), true);
-  if (id === 'button') addBtn('Press it', pressReset);
+  if ((id === 'button' || id === 'servo') && state.book > 0.6) addBtn('Press the turn button', () => requestFlip(1, true));
   if (id === 'shell') addBtn(state.explodeT ? 'Close the shell' : 'Open the shell', () => { toggleExplode(); selectPart('shell'); });
   if ((id === 'sensorL' || id === 'sensorR') && state.book > 0.6) addBtn('Turn a page', () => requestFlip(1));
   card.hidden = false;
@@ -1687,6 +1752,7 @@ document.addEventListener('keydown', e => {
   else if (k === 'End') { e.preventDefault(); go(SLIDES.length - 1); }
   else if (k === 't' || k === 'T') requestFlip(1);
   else if (k === 'b' || k === 'B') requestFlip(-1);
+  else if (k === 'a' || k === 'A') requestFlip(1, true);
   else if (k === 'e' || k === 'E') toggleExplode();
   else if (k === 'x' || k === 'X') { state.xray = !state.xray; syncTools(); }
   else if (k === 's' || k === 'S') { state.spin = !state.spin; orbit.lastUser = -1e9; syncTools(); }
@@ -1792,7 +1858,7 @@ function settle() {
   if (tw) { orbit.target.copy(tw.to.target); orbit.theta = tw.from.theta + tw.dTheta; orbit.phi = tw.to.phi; orbit.r = tw.to.r; orbit.tween = null; }
   state.explode = state.explodeT; state.book = state.bookT; state.beams = state.beamsT; state.dims = state.dimsT; state.xrayF = state.xray ? 1 : 0;
 }
-window.BookCounter = { THREE, scene, camera, orbit, view, deviceRoot, go, settle, state, select: id => selectPart(id), setExplode: v => { state.explodeT = v; state.explode = v; applyExplode(v); lastExplodeApplied = v; }, sensorBeams: [sensorL.beam, sensorR.beam], dims: dimsGroup, flip: requestFlip, fw };
+window.BookCounter = { THREE, scene, camera, orbit, view, deviceRoot, go, settle, state, select: id => selectPart(id), setExplode: v => { state.explodeT = v; state.explode = v; applyExplode(v); lastExplodeApplied = v; }, sensorBeams: [sensorL.beam, sensorR.beam], dims: dimsGroup, flip: requestFlip, fw, turnerWheel };
 
 function start(saved) {
   resize();
