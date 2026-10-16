@@ -112,7 +112,7 @@ kbd{display:inline-block;font-family:var(--font-ui);font-weight:700;font-size:.7
 .list li::marker{color:var(--ir);font-size:.9em}
 .steps{list-style:none;padding:0;display:flex;flex-direction:column;gap:12px;counter-reset:step}
 .steps li{display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:baseline;counter-increment:step}
-.steps li::before{content:counter(step);font-family:var(--font-pixel);font-size:.8rem;color:#fff;text-shadow:0 1px 1px rgba(0,30,90,.6);background:radial-gradient(circle at 35% 28%,rgba(255,255,255,.95) 0 12%,rgba(255,255,255,0) 34%),radial-gradient(circle at 50% 60%,#33a1ff,#0b74e5 80%);border-radius:50%;box-shadow:0 0 0 1px rgba(10,79,184,.4),0 2px 4px rgba(11,116,229,.35);text-align:center;line-height:26px;height:26px;width:26px}
+.steps li::before{content:counter(step);font-family:var(--font-ui);font-weight:700;font-size:.8rem;color:#fff;text-shadow:0 1px 2px rgba(0,30,90,.85);background:radial-gradient(ellipse 60% 34% at 50% 20%,rgba(255,255,255,.75),rgba(255,255,255,0) 100%),radial-gradient(circle at 50% 65%,#2a93f5,#0b62d0 85%);border-radius:50%;box-shadow:0 0 0 1px rgba(10,79,184,.4),0 2px 4px rgba(11,116,229,.35);text-align:center;line-height:26px;height:26px;width:26px}
 
 .parts{display:flex;flex-direction:column;gap:3px}
 .part-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 12px;align-items:baseline;width:100%;padding:8px 10px;border:1px solid transparent;border-radius:8px;background:rgba(255,255,255,.45);text-align:left;cursor:pointer;transition:background .15s,border-color .15s}
@@ -134,8 +134,8 @@ kbd{display:inline-block;font-family:var(--font-ui);font-weight:700;font-size:.7
 .readout .pix,.big{display:inline-block;font-family:var(--font-pixel);line-height:1;color:#9ff0ff;text-shadow:0 0 10px rgba(0,200,255,.7);font-variant-numeric:tabular-nums;padding:8px 12px 7px;border-radius:8px;background:linear-gradient(180deg,#123a7a,#0b2559 60%,#081b45);border:1px solid #061638;box-shadow:inset 0 2px 6px rgba(0,0,0,.45),0 1px 0 #fff}
 .readout .pix{font-size:2.3rem}
 .readout span:last-child{font-family:var(--font-ui);font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
-.demo-buttons{display:grid;grid-template-columns:1fr 1.25fr;gap:8px}
-.demo-buttons .btn{padding:0 10px;font-size:.76rem}
+.demo-buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.demo-buttons .btn{padding:0 8px;font-size:.72rem;white-space:nowrap}
 .scope{display:block;width:100%;height:104px;border-radius:8px;border:1px solid #9fc3e6;box-shadow:inset 0 1px 3px rgba(20,80,160,.18);background:linear-gradient(rgba(0,168,255,.12) 1px,transparent 1px) 0 0/13px 13px,linear-gradient(90deg,rgba(0,168,255,.12) 1px,transparent 1px) 0 0/13px 13px,#fbfdff}
 
 .code{margin:0;padding:12px 14px;overflow-x:auto;border:1px solid #7f9db9;border-radius:6px;background:#fff;box-shadow:inset 1px 1px 0 rgba(0,0,0,.06);font-family:var(--font-mono);font-size:.7rem;line-height:1.55;color:var(--navy);tab-size:2}
@@ -346,8 +346,8 @@ const CONFIG = {
   sizeMM: { w: 105, d: 60, h: 35 },    // outer size of the printed shell; the model is built from these
   pipeMM: { l: 180, w: 16, h: 13 },    // the hollow printed beam that holds the page turner (from Smashing_Densor.stl)
   material: 'PLA',
-  mcu: 'Arduino Nano',
-  mcuChip: 'ATmega328P',
+  mcu: 'ESP32 DevKit',
+  mcuChip: 'ESP-WROOM-32',
   power: 'USB cable from the computer · 5 V',
   display: '0.96″ OLED · 128 × 64 px · SSD1306 · I²C',
   sensor: 'IR obstacle module (FC-51) · LM393',
@@ -356,14 +356,14 @@ const CONFIG = {
   lockoutMs: 400,                      // a new hit within this time after a count is ignored
   startPage: 42,                       // the demo book opens here (left page, even)
   wiring: [                            // [part, its pin, where it goes]
-    ['IR sensor, left', 'OUT', 'D2'],
-    ['IR sensor, right', 'OUT', 'D3'],
-    ['Both IR sensors', 'VCC · GND', '5V · GND'],
-    ['OLED display', 'SDA · SCL', 'A4 · A5'],
-    ['OLED display', 'VCC · GND', '5V · GND'],
-    ['Turn button', 'leg 1 · leg 2', 'D4 · GND'],
-    ['Motor driver', 'signal in', 'D9'],
-    ['Motor driver', 'VCC · GND', '5V · GND'],
+    ['IR sensor, left', 'OUT', 'GPIO 32'],
+    ['IR sensor, right', 'OUT', 'GPIO 33'],
+    ['Both IR sensors', 'VCC · GND', 'VIN · GND'],
+    ['OLED display', 'SDA · SCL', 'GPIO 21 · 22'],
+    ['OLED display', 'VCC · GND', '3V3 · GND'],
+    ['Turn button', 'leg 1 · leg 2', 'GPIO 4 · GND'],
+    ['Motor driver', 'signal in', 'GPIO 25'],
+    ['Motor driver', 'VCC · GND', 'VIN · GND'],
     ['Servo (cable in the beam)', 'signal · + · −', 'motor driver'],
     ['Computer', 'USB cable', 'USB port: power + code'],
   ],
@@ -378,7 +378,7 @@ const PARTS = {
   mcu:     { name: 'Microcontroller', spec: `${CONFIG.mcu} · ${CONFIG.mcuChip}`, text: 'Reads both sensors and the turn button, tells the motor driver when to move the servo, keeps the count and draws it on the screen.' },
   usb:     { name: 'USB power', spec: CONFIG.power, text: 'There is no battery. The bookmark runs from a USB cable plugged into the computer, the same cable we use to upload the code.' },
   button:  { name: 'Turn button', spec: '6 mm push button', text: 'Press it and the automatic page turner turns one page for you. The sensors then count that page like any other.' },
-  driver:  { name: 'Motor driver', spec: CONFIG.driver, text: 'The Arduino’s pins can only give a small signal. The motor driver takes that signal and gives the servo the power it needs to move.' },
+  driver:  { name: 'Motor driver', spec: CONFIG.driver, text: 'The ESP32’s pins can only give a small 3.3 V signal. The motor driver takes that signal and gives the servo the power it needs to move.' },
   servo:   { name: 'Page turner', spec: `${CONFIG.servo} · rubber wheel`, text: 'When the turn button is pressed, the servo spins the rubber wheel. The wheel grips the top page and pushes it over.' },
   pipe:    { name: 'Hollow beam', spec: `3D-printed hollow structure · ${PM.l} × ${PM.w} × ${PM.h} mm`, text: 'A hollow 3D-printed beam joins the shell to the page turner and holds it over the page. The servo cable runs inside it.' },
   base:    { name: 'Cardboard base', spec: 'Corrugated cardboard sheet', text: 'A sheet of cardboard under the bookmark gives everything one flat base to sit on.' },
@@ -469,7 +469,7 @@ const SLIDES = [
       <h2 class="title">Press a button, the page turns</h2>
       <ol class="steps">
         <li><span><b>Press.</b> You press the turn button on top.</span></li>
-        <li><span><b>Signal.</b> The Arduino sends a signal to the motor driver.</span></li>
+        <li><span><b>Signal.</b> The ESP32 sends a signal to the motor driver.</span></li>
         <li><span><b>Power.</b> The motor driver powers the servo motor.</span></li>
         <li><span><b>Spin.</b> The servo spins the rubber wheel resting on the page.</span></li>
         <li><span><b>Turn.</b> The wheel grips the top page and pushes it over.</span></li>
@@ -535,7 +535,7 @@ const SLIDES = [
         <thead><tr><th scope="col">Part</th><th scope="col">Pin</th><th scope="col">Goes to</th></tr></thead>
         <tbody>${CONFIG.wiring.map(r => `<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`).join('')}</tbody>
       </table></div>
-      <p class="note">The sensors sit on D2 and D3, the two pins on a Nano that can also wake the board with an interrupt.</p>`,
+      <p class="note">The sensors sit on GPIO 32 and 33. On an ESP32 any of these pins can fire an interrupt the moment a page passes.</p>`,
   },
   {
     nav: 'Design & build', view: 'design', dims: true,
@@ -766,23 +766,29 @@ function sensorPcbCanvas() {
   x.fillStyle = '#cfae55'; [36, 104].forEach(px => { x.fillRect(px - 9, 300, 18, 14); });
   return c;
 }
-/* Arduino Nano top: 4.3 × 1.8 cm, USB at the left */
-const NANO_FRONT = ['D12', 'D11', 'D10', 'D9', 'D8', 'D7', 'D6', 'D5', 'D4', 'D3', 'D2', 'GND', 'RST', 'RX0', 'TX1'];
-const NANO_BACK = ['D13', '3V3', 'REF', 'A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', '5V', 'RST', 'GND', 'VIN'];
+/* ESP32 DevKit (30-pin) top: 5.1 × 2.8 cm, black board, micro-USB at the left, the ESP-WROOM-32 module at the right.
+   The names keep "nano" from the first version of the model; the pin lists run from the USB end. */
+const NANO_FRONT = ['VIN', 'GND', 'D13', 'D12', 'D14', 'D27', 'D26', 'D25', 'D33', 'D32', 'D35', 'D34', 'VN', 'VP', 'EN'];
+const NANO_BACK = ['3V3', 'GND', 'D15', 'D2', 'D4', 'RX2', 'TX2', 'D5', 'D18', 'D19', 'D21', 'RX0', 'TX0', 'D22', 'D23'];
+const MCU_L = 5.1, MCU_W = 2.8, MCU_ROW = 1.27;
 function nanoCanvas() {
-  const c = makeCanvas(430, 180), x = c.getContext('2d');
-  x.fillStyle = '#1d56b8'; x.fillRect(0, 0, 430, 180);
-  x.font = 'bold 8px Arial, sans-serif'; x.textAlign = 'center';
+  const c = makeCanvas(510, 280), x = c.getContext('2d');
+  x.fillStyle = '#151618'; x.fillRect(0, 0, 510, 280);
+  x.font = 'bold 9px Arial, sans-serif'; x.textAlign = 'center';
   for (let i = 0; i < 15; i++) {
-    const px = (-1.78 + i * 0.254 + 2.15) * 100;
-    [[16, NANO_BACK[i], 34], [164, NANO_FRONT[i], 152]].forEach(([py, label, ly]) => {
-      x.beginPath(); x.arc(px, py, 7, 0, Math.PI * 2); x.fillStyle = '#d6b65c'; x.fill();
-      x.beginPath(); x.arc(px, py, 3.2, 0, Math.PI * 2); x.fillStyle = '#121418'; x.fill();
-      x.save(); x.translate(px, ly); x.rotate(-Math.PI / 2); x.fillStyle = '#eef2fa'; x.fillText(label, 0, 3); x.restore();
+    const px = (-1.78 + i * 0.254 + MCU_L / 2) * 100;
+    [[(MCU_W / 2 - MCU_ROW) * 100, NANO_BACK[i], 40], [(MCU_W / 2 + MCU_ROW) * 100, NANO_FRONT[i], 240]].forEach(([py, label, ly]) => {
+      x.beginPath(); x.arc(px, py, 7.5, 0, Math.PI * 2); x.fillStyle = '#d6b65c'; x.fill();
+      x.beginPath(); x.arc(px, py, 3.4, 0, Math.PI * 2); x.fillStyle = '#0b0b0c'; x.fill();
+      x.save(); x.translate(px, ly); x.rotate(-Math.PI / 2); x.fillStyle = '#e9edf3'; x.fillText(label, 0, 3); x.restore();
     });
   }
-  x.fillStyle = '#eef2fa'; x.font = 'bold 20px Arial, sans-serif'; x.fillText('NANO', 330, 98);
-  x.font = '9px Arial, sans-serif'; x.fillText('V3.0', 330, 112);
+  x.fillStyle = '#e9edf3'; x.font = 'bold 15px Arial, sans-serif'; x.fillText('ESP32', 150, 128);
+  x.font = '9px Arial, sans-serif'; x.fillText('DEVKIT V1', 150, 142);
+  x.fillText('EN', 46, 112); x.fillText('BOOT', 46, 178);
+  x.strokeStyle = '#d6b65c'; x.lineWidth = 3; x.beginPath();   // the printed antenna past the end of the metal can
+  for (let k = 0; k < 7; k++) { const y0 = 52 + k * 26; x.moveTo(470, y0); x.lineTo(498, y0); x.lineTo(498, y0 + 13); x.lineTo(470, y0 + 13); }
+  x.stroke();
   return c;
 }
 
@@ -922,7 +928,7 @@ const M = {
   potBlue: std('#2f73e6', 0.42),
   potScrew: std('#f1ebdc', 0.35),
   nanoTop: std('#ffffff', 0.42, 0, { map: canvasTex(nanoCanvas()) }),
-  nanoEdge: std('#184a9f', 0.5),
+  nanoEdge: std('#121314', 0.5),
   oledPcb: std('#1f4aa8', 0.5),
   glass: new THREE.MeshPhysicalMaterial({ color: col('#05080c'), roughness: 0.08, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.05 }),
   screen: new THREE.MeshBasicMaterial({ map: oledTex, toneMapped: false }),
@@ -1086,31 +1092,32 @@ const buttonCap = mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.34, 28), M.cap);
 addPart('button', buttonGroup, new V3(0, 3.4, 0));
 
 
-/* --- microcontroller (Arduino Nano) on the floor --- */
+/* --- microcontroller (ESP32 DevKit) on the floor --- */
 const nanoGroup = new THREE.Group();
 nanoGroup.position.set(-2.3, WALL, 1.2);
 const NANO_TOP = 0.47;
 {
-  [-0.76, 0.76].forEach(z => { const s = mesh(box(3.85, 0.3, 0.26), M.black); s.position.set(0, 0.15, z); nanoGroup.add(s); });
-  const pcb = mesh(box(4.3, 0.16, 1.8), [M.nanoEdge, M.nanoEdge, M.nanoTop, M.nanoEdge, M.nanoEdge, M.nanoEdge]); pcb.position.y = 0.38;
-  const chip = mesh(box(0.72, 0.1, 0.72), M.blackGloss); chip.position.set(0.25, 0.51, 0); chip.rotation.y = Math.PI / 4;
-  const usb = mesh(box(0.8, 0.38, 0.76), M.metal); usb.position.set(-1.95, 0.65, 0);
-  const xtal = mesh(box(0.36, 0.14, 0.16), M.metal); xtal.position.set(-0.75, 0.53, 0.38);
-  const rst = mesh(box(0.3, 0.12, 0.3), M.potScrew); rst.position.set(-0.75, 0.52, -0.3);
+  [-MCU_ROW, MCU_ROW].forEach(z => { const s = mesh(box(3.85, 0.3, 0.26), M.black); s.position.set(0, 0.15, z); nanoGroup.add(s); });
+  const pcb = mesh(box(MCU_L, 0.16, MCU_W), [M.nanoEdge, M.nanoEdge, M.nanoTop, M.nanoEdge, M.nanoEdge, M.nanoEdge]); pcb.position.y = 0.38;
+  const can = mesh(box(1.7, 0.3, 1.75), M.metal); can.position.set(1.25, 0.61, 0);              // ESP-WROOM-32 shield
+  const canPcb = mesh(box(2.55, 0.08, 1.8), M.blackGloss); can.position.y = 0.65; canPcb.position.set(1.47, 0.5, 0);
+  const usb = mesh(box(0.55, 0.28, 0.75), M.metal); usb.position.set(-2.3, 0.6, 0);             // micro-USB
   const reg = mesh(box(0.34, 0.12, 0.3), M.black); reg.position.set(-1.25, 0.52, 0.42);
-  const plug = mesh(box(0.95, 0.5, 0.7), M.usbGrey); plug.position.set(-2.85, 0.65, 0); // USB lead to the computer, through the wall
-  plug.userData.part = 'usb'; // rides on the Nano when the shell opens, but clicking it opens the USB power card
-  nanoGroup.add(pcb, chip, usb, xtal, rst, reg, plug);
+  const uart = mesh(box(0.5, 0.1, 0.5), M.blackGloss); uart.position.set(-0.85, 0.51, -0.25);   // USB-serial chip
+  const btns = [-0.6, 0.6].map(z => { const b = mesh(box(0.42, 0.14, 0.32), M.metal); b.position.set(-2.05, 0.53, z); return b; }); // EN and BOOT
+  const plug = mesh(box(0.95, 0.5, 0.7), M.usbGrey); plug.position.set(-3.0, 0.6, 0); // USB lead to the computer, through the wall
+  plug.userData.part = 'usb'; // rides on the board when the shell opens, but clicking it opens the USB power card
+  nanoGroup.add(pcb, canPcb, can, usb, reg, uart, ...btns, plug);
 }
 addPart('mcu', nanoGroup, new V3(0, 1.9, 0));
 const nanoPin = name => {
   let i = NANO_FRONT.indexOf(name);
-  if (i >= 0) return new V3(-1.78 + i * 0.254, NANO_TOP + 0.02, 0.76);
+  if (i >= 0) return new V3(-1.78 + i * 0.254, NANO_TOP + 0.02, MCU_ROW);
   i = NANO_BACK.indexOf(name);
-  return new V3(-1.78 + i * 0.254, NANO_TOP + 0.02, -0.76);
+  return new V3(-1.78 + i * 0.254, NANO_TOP + 0.02, -MCU_ROW);
 };
 
-/* --- motor driver: turns the Arduino's small signal into power for the servo --- */
+/* --- motor driver: turns the ESP32's small signal into power for the servo --- */
 const driverGroup = new THREE.Group();
 driverGroup.position.set(2.6, WALL, -1.75);
 {
@@ -1253,7 +1260,7 @@ const ptIn = (obj, x, y, z) => deviceRoot.worldToLocal(obj.localToWorld(tmpV.set
 const WIRE_DEFS = [];
 function wire(hex, fn, r, name) { const m = mesh(new THREE.BufferGeometry(), wireMat(hex)); m.castShadow = true; if (name) m.name = name; wiresGroup.add(m); WIRE_DEFS.push({ m, fn, r: r || 0.065 }); }
 [[sensorL, -1, ['#8a63d2', '#e8e8e8', '#3fae5a']], [sensorR, 1, ['#9aa0a6', '#e8e8e8', '#3fae5a']]].forEach(([s, side, colors]) => {
-  const pins = ['5V', 'GND', side < 0 ? 'D2' : 'D3'];
+  const pins = ['VIN', 'GND', side < 0 ? 'D32' : 'D33'];
   [0, 1, 2].forEach(k => {
     wire(colors[k], () => {
       const o = (k - 1) * 0.11, hx = side * PORT.x;
@@ -1267,7 +1274,7 @@ function wire(hex, fn, r, name) { const m = mesh(new THREE.BufferGeometry(), wir
     });
   });
 });
-[['#26282c', 'GND'], ['#d6453d', '5V'], ['#e2b93b', 'A5'], ['#3b82d6', 'A4']].forEach(([hex, pin], i) => {
+[['#26282c', 'GND'], ['#d6453d', '3V3'], ['#e2b93b', 'D22'], ['#3b82d6', 'D21']].forEach(([hex, pin], i) => {
   wire(hex, () => {
     const x = -0.381 + i * 0.254, p = nanoPin(pin).add(new V3(0.05 * (i - 1.5), 0, 0));
     return [ptIn(oledGroup, x, -0.78, -1.45), ptIn(oledGroup, x, -1.3, -1.35), ptIn(nanoGroup, p.x, p.y + 1.1, p.z - 0.2), ptIn(nanoGroup, p.x, p.y, p.z)];
@@ -1282,12 +1289,12 @@ const pipeMesh = pipeGroup.children[0];
   wire(hex, () => [ptIn(servoGroup, 0.15 * k, -0.7, -1.0), ptIn(servoGroup, 0.15 * k, -0.15, -0.9), ptIn(pipeMesh, 9.6, 0.05 * k, 0.12 * k), ptIn(pipeMesh, 8.6, 0, 0.12 * k)]);
   wire(hex, () => [ptIn(pipeMesh, -8.6, 0, 0.12 * k), ptIn(pipeMesh, -9.5, -0.1, 0.12 * k), ptIn(driverGroup, 0.75, 1.0, 0.3 * k), ptIn(driverGroup, 0.75, 0.68, 0.3 * k)]);
 });
-/* motor driver to the Arduino: signal on D9, plus 5 V and ground */
-[['#3fae5a', 'D9', -0.3], ['#d6453d', '5V', 0], ['#26282c', 'GND', 0.3]].forEach(([hex, pin, z]) => {
+/* motor driver to the ESP32: signal on GPIO 25, plus VIN (5 V from USB) and ground */
+[['#3fae5a', 'D25', -0.3], ['#d6453d', 'VIN', 0], ['#26282c', 'GND', 0.3]].forEach(([hex, pin, z]) => {
   wire(hex, () => { const p = nanoPin(pin).add(new V3(0.08, 0, 0)); return [ptIn(driverGroup, -0.85, 0.56, z), ptIn(driverGroup, -1.4, 1.3, z), ptIn(nanoGroup, p.x, p.y + 1.0, p.z), ptIn(nanoGroup, p.x, p.y, p.z)]; });
 });
-/* USB lead from the Nano, out through the left wall and across the desk to the computer */
-wire('#2b2f36', () => [ptIn(nanoGroup, -3.3, 0.65, 0), ptIn(nanoGroup, -4.4, 0.55, -0.3), new V3(-6.2, 0.2, -1.0), new V3(-7.0, -0.35, -1.5), new V3(-7.9, -2.4, -2.6), new V3(-9.6, -5.6, -4.5), new V3(-14, -5.83, -9), new V3(-30, -5.83, -16)], 0.17, 'usb-cable');
+/* USB lead from the ESP32, out through the left wall and across the desk to the computer */
+wire('#2b2f36', () => [ptIn(nanoGroup, -3.45, 0.6, 0), ptIn(nanoGroup, -4.4, 0.55, -0.3), new V3(-6.2, 0.2, -1.0), new V3(-7.0, -0.35, -1.5), new V3(-7.9, -2.4, -2.6), new V3(-9.6, -5.6, -4.5), new V3(-14, -5.83, -9), new V3(-30, -5.83, -16)], 0.17, 'usb-cable');
 // the USB lead is its own part (not a jumper wire); its points are in deviceRoot space and usbGroup sits at the origin
 const usbGroup = new THREE.Group();
 usbGroup.add(WIRE_DEFS[WIRE_DEFS.length - 1].m);
@@ -1681,7 +1688,7 @@ const LABELS = [
   { id: 'sensorR', part: 'sensorR', obj: sensorR.tilt, at: [0, -2.4, 0.1] },
   { id: 'mcu', part: 'mcu', obj: nanoGroup, at: [0.8, 0.55, 0] },
   { id: 'driver', part: 'driver', obj: driverGroup, at: [0, 0.7, 0] },
-  { id: 'usb', part: 'usb', obj: nanoGroup, at: [-3.3, 0.95, 0] },
+  { id: 'usb', part: 'usb', obj: nanoGroup, at: [-3.45, 0.95, 0] },
   { id: 'servo', part: 'servo', obj: servoGroup, at: [0.6, -1.4, 1.1] },
   { id: 'pipe', part: 'pipe', obj: pipeGroup, at: [3.5, 0.7, 0] },
   { id: 'base', part: 'base', obj: baseCardGroup, at: [-6.0, 0, 0.5] },
