@@ -12,6 +12,7 @@ const HIDE_UI = '.top,.nav,.hint,.card,.tip,.loading,.help{display:none!importan
 
 async function open(browser, w, h, dpr, panelMode) {
   const page = await browser.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: dpr });
+  page.setDefaultTimeout(600000); // big screenshots are slow under SwiftShader when several workers share the CPU
   page.on('pageerror', e => console.log('[pageerror]', e.message));
   await page.addInitScript(() => {
     window.__fake = { on: false, t: 0, step: 0, frames: 0 };
@@ -78,7 +79,7 @@ const mkdir = d => fs.mkdirSync(d, { recursive: true });
       const sens = id => { const b = new THREE.Box3().setFromObject(groups(id)[0]); const c = b.getCenter(new THREE.Vector3()); c.y = b.min.y + (b.max.y - b.min.y) * 0.35; return c; };
       const wheel = B.turnerWheel.getWorldPosition(new THREE.Vector3());
       const pipe = groups('pipe')[0].getWorldPosition(new THREE.Vector3());
-      return { oled: proj(worldOf(screen)), button: proj(worldOf(button).add(new THREE.Vector3(0, 0.3, 0))), shell: proj(worldOf(decal)), sensorL: proj(sens('sensorL')), sensorR: proj(sens('sensorR')), servo: proj(wheel), pipe: proj(pipe) };
+      return { oled: proj(worldOf(screen)), button: proj(worldOf(button).add(new THREE.Vector3(0, 0.3, 0))), shell: proj(worldOf(decal)), sensorL: proj(sens('sensorL')), sensorR: proj(sens('sensorR')), servo: proj(wheel), pipe: proj(pipe), base: proj(B.deviceRoot.localToWorld(new THREE.Vector3(-6.0, 0, 0.5))) };
     });
     fs.writeFileSync(`${OUT}/hub_spots.json`, JSON.stringify(spots, null, 2));
     console.log('hub + spots', JSON.stringify(spots));
@@ -99,6 +100,13 @@ const mkdir = d => fs.mkdirSync(d, { recursive: true });
   }
 
   // ---------- looping GIF frames, model centred ----------
+  if (want('wiring')) {  // just the wiring still (the board inside is visible on it)
+    const p2 = await open(browser, 1600, 900, 1, 'right');
+    await labels(p2, true);
+    await setSlide(p2, 8); await p2.screenshot({ path: `${OUT}/wiring.png` });
+    console.log('wiring done');
+    await p2.close();
+  }
   if (want('spin')) {
     const page = await open(browser, 960, 540, 1, 'center');
     await labels(page, false);
@@ -148,7 +156,7 @@ const mkdir = d => fs.mkdirSync(d, { recursive: true });
     const page = await open(browser, 960, 540, 1, 'center');
     await labels(page, false);
     await setSlide(page, 4);
-    await flipFrames(page, `${OUT}/sensor`, 1, 24);
+    await flipFrames(page, `${OUT}/sensor`, 1, 18);
     console.log('sensor done');
     await page.close();
   }
@@ -156,7 +164,7 @@ const mkdir = d => fs.mkdirSync(d, { recursive: true });
     const page = await open(browser, 960, 540, 1, 'center');
     await labels(page, false);
     await setSlide(page, 5);
-    await flipFrames(page, `${OUT}/turner`, 1, 26);
+    await flipFrames(page, `${OUT}/turner`, 1, 18);  // the flip is over by frame 17
     console.log('turner done');
     await page.close();
   }

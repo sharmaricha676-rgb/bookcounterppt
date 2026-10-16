@@ -67,7 +67,7 @@ const CONFIG = {
   presenters: '',                      // your names, shown on the first and last slide
   sizeMM: { w: 105, d: 60, h: 35 },    // outer size of the shell; the 3D model is built from these
   material: 'PLA',
-  mcu: 'Arduino Nano',
+  mcu: 'ESP32 DevKit',
   power: 'USB cable from the computer · 5 V',
   servo: 'Servo motor (SG90 size)',
   driver: 'Motor driver board',
@@ -85,7 +85,7 @@ Slide text is in the `SLIDES` list just below it.
 `BookCounter-interactive.pptx` is the same talk as a native PowerPoint file. It is clickable in slideshow mode:
 a menu slide links to every section, the live demo has **Press turn button ►** and **◄ Flip back by hand**
 buttons that step the OLED count, the hotspots on the device open part details, and the 3D model can be
-rotated on the slide. It uses Morph and Page Curl transitions and animated GIFs rendered from `index.html`.
+rotated on the slide. It uses Morph and Page Curl transitions and animated GIFs rendered from `index.html`, framed in XP-style windows.
 
 The generator is in `pptx/` (`render_assets.js` renders the frames, `make_gifs.sh` builds the GIFs,
 `build_deck.py` writes the deck, `check_links.py` checks every button lands on a slide).
