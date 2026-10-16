@@ -9,8 +9,11 @@ embossed on the front, the OLED window and turn button on top, and the two blue 
 
 It also has an **automatic page turner**: press the button and the Arduino tells the motor driver to swing
 the servo, whose rubber wheel pushes the page over; the IR sensors then count it like any other turn.
-The servo hangs off a printed pipe (180 × 16 × 13 mm) that carries its cable from the shell out over the book.
-There is no battery: the device runs from the computer's USB port.
+The servo hangs off a hollow 3D-printed beam (180 × 16 × 13 mm) that carries its cable from the shell out over the book,
+and the whole bookmark sits on a cardboard base. There is no battery: the device runs from the computer's USB port.
+
+Both decks share a Y2K, early-2000s look: a glossy sky-blue backdrop, glass panels, Aqua-style buttons and
+Windows XP-style window frames.
 
 ## Present it
 
@@ -41,7 +44,7 @@ Mouse: drag to rotate, scroll to zoom, click any part for its details. Touch: dr
 
 1. Title
 2. The problem: paper books keep no score
-3. The device: OLED, two IR sensors, turn button, pipe, page turner, printed shell (labelled on the model)
+3. The device: OLED, two IR sensors, turn button, hollow beam, page turner, printed shell, cardboard base (labelled on the model)
 4. Inside: exploded view with the Arduino, motor driver, OLED, USB power and wiring
 5. How an IR sensor sees a page (beam shown in red)
 6. **The page turner:** button → Arduino → motor driver → servo → wheel → page, step by step
@@ -68,7 +71,7 @@ const CONFIG = {
   power: 'USB cable from the computer · 5 V',
   servo: 'Servo motor (SG90 size)',
   driver: 'Motor driver board',
-  pipeMM: { l: 180, w: 16, h: 13 },    // the pipe that holds the page turner
+  pipeMM: { l: 180, w: 16, h: 13 },    // the hollow beam that holds the page turner
   ...
   wiring: [ ['IR sensor, left', 'OUT', 'D2'], ... ],
 };

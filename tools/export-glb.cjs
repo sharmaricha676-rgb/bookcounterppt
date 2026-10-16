@@ -18,6 +18,7 @@ const out = path.join(root, 'assets', 'book-counter.glb');
   const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   page.on('pageerror', e => console.error('page error:', e.message));
+  page.on('console', m => { if (m.text().startsWith('{"size"')) console.log('model', m.text()); }); // size for pptx/pptx_extras.py
   await page.goto('file://' + path.join(root, 'index.html'));
   await page.waitForFunction(() => window.BookCounter, null, { timeout: 60000 });
   await page.waitForTimeout(2500); // let fonts load and the canvases redraw
@@ -34,7 +35,7 @@ const out = path.join(root, 'assets', 'book-counter.glb');
       if (o.name === 'usb-cable') o.visible = false;                                    // the lead across the desk
       o.userData = {};
       if (o.isLineSegments) o.visible = false;                                         // dimension lines
-      if (o.isMesh && o.material && o.material.blending === THREE.AdditiveBlending) o.visible = false; // IR beams
+      if (o.name === 'ir-beam') o.visible = false;                                      // IR beams
     });
     model.updateMatrixWorld(true);
     // centre the visible model on the origin so PowerPoint (and any viewer) rotates it about its middle;
@@ -42,6 +43,8 @@ const out = path.join(root, 'assets', 'book-counter.glb');
     const box = new THREE.Box3();
     model.traverse(o => { if (o.isMesh && o.visible) box.expandByObject(o); });
     model.position.sub(box.getCenter(new THREE.Vector3()));
+    const size = box.getSize(new THREE.Vector3());
+    console.log(JSON.stringify({ size: size.toArray(), largest: Math.max(size.x, size.y, size.z), diagonal: size.length() }));
     const scene = new THREE.Scene();
     scene.add(model);
     scene.updateMatrixWorld(true);
