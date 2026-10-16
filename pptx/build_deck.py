@@ -739,7 +739,7 @@ for i, (key, ttl, line1, line2, view) in enumerate(TOUR):
 s = new_slide('inside', notes=(
     "If we lift the top plate off, you can see the inside. The microcontroller is an ESP32 DevKit, the black board: it reads the sensors "
     "and keeps the count. The OLED screen is mounted under the window in the top plate. The red board is the motor driver "
-    "for the page turner. There is no battery: everything runs from a USB cable plugged into the computer."))
+    "for the page turner. Behind the shell sits the battery pack: two 18650 lithium cells that power everything. The USB cable is for uploading the code."))
 window_media(s, f'{GIFS}/explode.gif', RX, 1.85, RW, 'explode.gif',
              'The shell opening up to show the parts inside, then closing again', name='Exploded view')
 menu_pill(s)
@@ -750,7 +750,7 @@ text(s, ML, 2.0, 4.8, 0.8, [P('Lift off the top plate and four parts do the real
 for i, (nm, ds) in enumerate([('Microcontroller', 'ESP32 DevKit. Reads, decides, counts.'),
                               ('OLED display', '0.96", under the window.'),
                               ('Motor driver', 'Gives the servo the power to move.'),
-                              ('USB power', 'No battery: runs from the computer.')]):
+                              ('Battery pack', 'Two 18650 cells power everything.')]):
     col, row = i % 2, i // 2
     card(s, ML + col * 2.48, 3.0 + row * 1.32, 2.36, 1.18, [P(nm, size=14, bold=True, font=HEAD, color=C['navy'], after=4),
                                                            P(ds, size=11, color=C['muted'], line=1.05)],
@@ -885,7 +885,7 @@ def demo_slide(key, count, media, alt, status, hidden, last_dir):
         lit = j < count
         rect(s, 3.92 + j * 0.27, 2.85, 0.21, 0.21, fill=C['lime'] if lit else 'DCE7F3', line='4F8F00' if lit else 'A9BDD4',
              name=f'Progress {j + 1}', line_w=0.75)
-    text(s, 3.9, 3.2, 1.6, 0.5, [P('USB · IR OK', size=9, bold=True, font=PIX, color=C['muted'])])
+    text(s, 3.9, 3.2, 1.6, 0.5, [P('BATT · IR OK', size=9, bold=True, font=PIX, color=C['muted'])])
     text(s, ML, 3.98, 4.6, 0.6, [P(status, size=13, color=C['body'])])
     nxt = f'fwd{count + 1}' if count < 5 else None
     prv = f'back{count - 1}' if count > 0 else None
@@ -942,18 +942,19 @@ s = new_slide('wiring', notes=(
     "Here's how it's wired. Each sensor has three pins: power, ground and an output. The outputs go to GPIO 32 "
     "and 33 on the ESP32. The OLED screen uses I²C, which needs only two data wires, on GPIO 21 and 22. "
     "The turn button is on GPIO 4. The ESP32 sends the servo signal on GPIO 25 to the motor driver, and the servo cable runs through "
-    "the hollow beam to the driver. Everything is powered by the USB cable from the computer."))
-full_bleed(s, IMG['wiring'], 'Top view of the opened shell with the ESP32 DevKit, OLED, turn button, motor driver and USB power labelled', dx=0.95)
+    "the hollow beam to the driver. Two 18650 lithium cells power the motor driver, and the driver's 5 volt output powers the ESP32. The USB cable is only for uploading the code."))
+full_bleed(s, IMG['wiring'], 'Top view of the opened shell with the ESP32 DevKit, OLED, turn button, motor driver, battery pack and USB cable labelled', dx=0.95)
 menu_pill(s)
 eyebrow(s, 'Circuit')
 title(s, 'Wiring')
 ROWS = [('Part', 'Pin', 'Goes to'), ('IR sensor, left', 'OUT', 'GPIO 32'), ('IR sensor, right', 'OUT', 'GPIO 33'),
         ('Both IR sensors', 'VCC · GND', 'VIN · GND'), ('OLED display', 'SDA · SCL', 'GPIO 21 · 22'),
         ('OLED display', 'VCC · GND', '3V3 · GND'), ('Turn button', 'leg 1 · leg 2', 'GPIO 4 · GND'),
-        ('Motor driver', 'signal in', 'GPIO 25'), ('Motor driver', 'VCC · GND', 'VIN · GND'),
-        ('Servo (in the beam)', 'cable', 'motor driver'), ('Computer', 'USB cable', 'USB port')]
-glass(s, ML - 0.1, 1.85, 5.5, 0.36 * len(ROWS) + 0.2, opacity=0.7, rad=0.14, name='Table frame', gloss=0)
-gf = s.shapes.add_table(len(ROWS), 3, Inches(ML), Inches(1.95), Inches(5.3), Inches(0.36 * len(ROWS)))
+        ('Motor driver', 'signal in', 'GPIO 25'), ('Battery pack', '+ · −', 'motor driver in'),
+        ('Motor driver', '5V out · GND', 'ESP32 VIN · GND'), ('Servo (in the beam)', 'cable', 'motor driver'),
+        ('Computer', 'USB cable', 'uploads the code')]
+glass(s, ML - 0.1, 1.85, 5.5, 0.33 * len(ROWS) + 0.2, opacity=0.7, rad=0.14, name='Table frame', gloss=0)
+gf = s.shapes.add_table(len(ROWS), 3, Inches(ML), Inches(1.95), Inches(5.3), Inches(0.33 * len(ROWS)))
 gf.name = 'Wiring table'
 tbl = gf.table
 tbl.first_row = True
@@ -961,7 +962,7 @@ tbl.horz_banding = False
 for ci, wdt in enumerate((2.2, 1.4, 1.7)):
     tbl.columns[ci].width = Inches(wdt)
 for ri, row in enumerate(ROWS):
-    tbl.rows[ri].height = Inches(0.36)
+    tbl.rows[ri].height = Inches(0.33)
     for ci, val in enumerate(row):
         cell = tbl.cell(ri, ci)
         tcPr = cell._tc.get_or_add_tcPr()
@@ -985,7 +986,7 @@ for ri, row in enumerate(ROWS):
         fill_tf(cell.text_frame, [P(val.upper() if head else val, size=9.5 if head else 11.5, bold=head or ci == 2,
                                     font=EYE if head else (MONO if ci == 2 else BODY), color=color,
                                     spacing=120 if head else None)], anchor='middle', margins=(0.1, 0.02, 0.06, 0.02))
-text(s, ML, 6.2, 5.2, 0.6, [P('No battery: the USB cable from the computer powers everything and uploads the code.', size=11, color=C['muted'], line=1.1)])
+text(s, ML, 6.42, 5.2, 0.6, [P('Two 18650 lithium cells power everything. The USB cable from the computer uploads the code.', size=11, color=C['muted'], line=1.1)])
 
 # 37 --------------------------------------------------------------- build
 s = new_slide('build', notes=(
@@ -1036,7 +1037,7 @@ for i, (q, a) in enumerate([('One page could count twice.', 'A 400 ms lock-out a
 # 39 --------------------------------------------------------------- next
 s = new_slide('next', notes=(
     "There's a lot we'd like to add next. Bluetooth, so each reading session goes to a phone app with graphs. "
-    "Reading speed in pages per minute. A battery option so it works away from the computer. Letting the page turner "
+    "Reading speed in pages per minute. A battery meter on the screen, so you know when to charge. Letting the page turner "
     "flip pages back as well, and an adjustable clip so it fits any book."))
 glass(s, 0.42, 0.42, 12.5, 6.66, opacity=0.55, name='Next panel', gloss=0.4)
 menu_pill(s)
@@ -1044,7 +1045,7 @@ eyebrow(s, 'Next version')
 title(s, 'Where it goes next', w=10)
 for i, (k, v) in enumerate([('Bluetooth sync', 'Send each session to a phone app with daily and weekly graphs.'),
                             ('Reading speed', 'Show pages per minute right on the screen.'),
-                            ('Battery option', 'A rechargeable cell so it also works away from the computer.'),
+                            ('Battery meter', 'Show how much charge is left, right on the OLED.'),
                             ('Turn back too', 'Spin the wheel the other way to flip a page back.'),
                             ('Fits any book', 'An adjustable clip for thin paperbacks and thick textbooks.')]):
     y = 2.15 + i * 0.92
