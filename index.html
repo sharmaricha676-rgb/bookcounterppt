@@ -348,7 +348,7 @@ const CONFIG = {
   material: 'PLA',
   mcu: 'ESP32 DevKit',
   mcuChip: 'ESP-WROOM-32',
-  power: 'USB cable from the computer · 5 V',
+  power: '2 × 18650 lithium cells · 7.4 V',
   display: '0.96″ OLED · 128 × 64 px · SSD1306 · I²C',
   sensor: 'IR obstacle module (FC-51) · LM393',
   servo: 'Servo motor (SG90 size)',
@@ -363,9 +363,10 @@ const CONFIG = {
     ['OLED display', 'VCC · GND', '3V3 · GND'],
     ['Turn button', 'leg 1 · leg 2', 'GPIO 4 · GND'],
     ['Motor driver', 'signal in', 'GPIO 25'],
-    ['Motor driver', 'VCC · GND', 'VIN · GND'],
+    ['Battery pack', '+ · −', 'motor driver power in'],
+    ['Motor driver', '5V out · GND', 'ESP32 VIN · GND'],
     ['Servo (cable in the beam)', 'signal · + · −', 'motor driver'],
-    ['Computer', 'USB cable', 'USB port: power + code'],
+    ['Computer', 'USB cable', 'USB port: uploads the code'],
   ],
 };
 
@@ -376,7 +377,8 @@ const PARTS = {
   sensorL: { name: 'IR sensor, left', spec: CONFIG.sensor, text: 'Watches the left side of the book. When a page goes forward, it sees the page second, as the page lands.' },
   sensorR: { name: 'IR sensor, right', spec: CONFIG.sensor, text: 'Watches the right side of the book. When a page goes forward, it sees the page first, as it lifts.' },
   mcu:     { name: 'Microcontroller', spec: `${CONFIG.mcu} · ${CONFIG.mcuChip}`, text: 'Reads both sensors and the turn button, tells the motor driver when to move the servo, keeps the count and draws it on the screen.' },
-  usb:     { name: 'USB power', spec: CONFIG.power, text: 'There is no battery. The bookmark runs from a USB cable plugged into the computer, the same cable we use to upload the code.' },
+  usb:     { name: 'USB cable', spec: 'To the computer', text: 'Plugs the ESP32 into the computer so we can upload the code. Once it is running, the battery pack powers the bookmark.' },
+  battery: { name: 'Battery pack', spec: CONFIG.power, text: 'Two 18650 lithium cells in a holder on the cardboard base. They power the motor driver and the servo, and the driver’s 5 V output powers the ESP32.' },
   button:  { name: 'Turn button', spec: '6 mm push button', text: 'Press it and the automatic page turner turns one page for you. The sensors then count that page like any other.' },
   driver:  { name: 'Motor driver', spec: CONFIG.driver, text: 'The ESP32’s pins can only give a small 3.3 V signal. The motor driver takes that signal and gives the servo the power it needs to move.' },
   servo:   { name: 'Page turner', spec: `${CONFIG.servo} · rubber wheel`, text: 'When the turn button is pressed, the servo spins the rubber wheel. The wheel grips the top page and pushes it over.' },
@@ -435,7 +437,7 @@ const SLIDES = [
       <p class="note">Click a row, or click the part on the model.</p>`,
   },
   {
-    nav: 'Inside', view: 'inside', explode: 1, labels: ['lid', 'oled', 'button', 'mcu', 'driver', 'usb'],
+    nav: 'Inside', view: 'inside', explode: 1, labels: ['lid', 'oled', 'button', 'mcu', 'driver', 'battery'],
     html: `
       <p class="eyebrow">Inside the shell</p>
       <h2 class="title">What’s inside</h2>
@@ -444,7 +446,7 @@ const SLIDES = [
         ${partRow('mcu', 'The brain: reads, decides, counts')}
         ${partRow('oled', 'Mounted under the window in the top plate')}
         ${partRow('driver', 'Gives the servo the power to move')}
-        ${partRow('usb', 'No battery: power comes from the computer')}
+        ${partRow('battery', 'Two 18650 cells power everything')}
       </div>
       <p class="note">The <kbd>E</kbd> key or the Explode button opens the shell on any slide.</p>`,
   },
@@ -526,11 +528,11 @@ const SLIDES = [
       <p class="note">Simplified for the slide. The turn button only starts the servo; the page it turns is counted by this same code. Press <kbd>A</kbd> and watch the screen. LOCKOUT_MS is ${CONFIG.lockoutMs} ms.</p>`,
   },
   {
-    nav: 'Wiring', view: 'wiring', explode: 1, labels: ['mcu', 'oled', 'button', 'driver', 'usb'],
+    nav: 'Wiring', view: 'wiring', explode: 1, labels: ['mcu', 'oled', 'button', 'driver', 'battery', 'usb'],
     html: `
       <p class="eyebrow">Circuit</p>
       <h2 class="title">Wiring</h2>
-      <p class="lede">Everything plugs into the microcontroller. The servo is driven through the motor driver, and the whole bookmark runs on USB power from the computer.</p>
+      <p class="lede">Everything plugs into the microcontroller. The servo is driven through the motor driver, and a pack of two 18650 lithium cells powers the whole bookmark.</p>
       <div class="table-wrap"><table class="pins">
         <thead><tr><th scope="col">Part</th><th scope="col">Pin</th><th scope="col">Goes to</th></tr></thead>
         <tbody>${CONFIG.wiring.map(r => `<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`).join('')}</tbody>
@@ -573,7 +575,7 @@ const SLIDES = [
       <ul class="list">
         <li><b>Bluetooth sync.</b> Send each session to a phone app with daily and weekly graphs.</li>
         <li><b>Reading speed.</b> Pages per minute, right on the screen.</li>
-        <li><b>Battery option.</b> A rechargeable cell so it also works away from the computer.</li>
+        <li><b>Battery meter.</b> Show how much charge is left, right on the OLED.</li>
         <li><b>Turn back too.</b> Spin the wheel the other way to flip a page back.</li>
         <li><b>Smaller.</b> A custom circuit board so the sensor arms fold flat.</li>
         <li><b>Fits any book.</b> An adjustable clip for thin paperbacks and thick textbooks.</li>
@@ -1106,7 +1108,7 @@ const NANO_TOP = 0.47;
   const uart = mesh(box(0.5, 0.1, 0.5), M.blackGloss); uart.position.set(-0.85, 0.51, -0.25);   // USB-serial chip
   const btns = [-0.6, 0.6].map(z => { const b = mesh(box(0.42, 0.14, 0.32), M.metal); b.position.set(-2.05, 0.53, z); return b; }); // EN and BOOT
   const plug = mesh(box(0.95, 0.5, 0.7), M.usbGrey); plug.position.set(-3.0, 0.6, 0); // USB lead to the computer, through the wall
-  plug.userData.part = 'usb'; // rides on the board when the shell opens, but clicking it opens the USB power card
+  plug.userData.part = 'usb'; // rides on the board when the shell opens, but clicking it opens the USB cable card
   nanoGroup.add(pcb, canPcb, can, usb, reg, uart, ...btns, plug);
 }
 addPart('mcu', nanoGroup, new V3(0, 1.9, 0));
@@ -1125,7 +1127,8 @@ driverGroup.position.set(2.6, WALL, -1.75);
   const chip = mesh(box(0.7, 0.12, 0.5), M.blackGloss); chip.position.set(-0.15, 0.32, 0);
   const term = mesh(box(0.5, 0.42, 1.0), M.terminal); term.position.set(0.75, 0.47, 0);
   const pins = mesh(box(0.25, 0.3, 0.9), M.black); pins.position.set(-0.85, 0.41, 0);
-  driverGroup.add(pcb, chip, term, pins);
+  const pwr = mesh(box(0.5, 0.42, 0.55), M.terminal); pwr.position.set(0.05, 0.47, -0.52); // battery in
+  driverGroup.add(pcb, chip, term, pins, pwr);
 }
 addPart('driver', driverGroup, new V3(0, 1.2, -0.4));
 
@@ -1145,7 +1148,7 @@ const kraftEdge = (() => {  // the flutes you see on a cut edge
   x.stroke();
   const t = canvasTex(c); t.wrapS = THREE.RepeatWrapping; return t;
 })();
-const BASE_X0 = -6.6, BASE_X1 = W / 2 + 0.1, BASE_Z0 = -6.2, BASE_Z1 = D / 2, BASE_T = 0.35;
+const BASE_X0 = -6.6, BASE_X1 = W / 2 + 0.1, BASE_Z0 = -7.7, BASE_Z1 = D / 2, BASE_T = 0.35;
 const baseCardGroup = new THREE.Group();
 {
   const w = BASE_X1 - BASE_X0, d = BASE_Z1 - BASE_Z0;
@@ -1160,6 +1163,26 @@ const baseCardGroup = new THREE.Group();
   baseCardGroup.add(card);
 }
 addPart('base', baseCardGroup);
+
+/* --- battery pack: a 2 × 18650 holder (77 × 41 × 20 mm) on the cardboard behind the shell --- */
+const batteryGroup = new THREE.Group();
+batteryGroup.position.set(-1.6, 0, -5.4);
+{
+  const cellMat = new THREE.MeshStandardMaterial({ color: col('#c08ad8'), roughness: 0.35, metalness: 0.05 });
+  const floor = mesh(box(7.7, 0.22, 4.1), M.black); floor.position.y = 0.11;
+  const sideA = mesh(box(7.7, 1.35, 0.18), M.black); sideA.position.set(0, 0.68, 1.96);
+  const sideB = sideA.clone(); sideB.position.z = -1.96;
+  const endA = mesh(box(0.35, 1.6, 4.1), M.black); endA.position.set(3.68, 0.8, 0);
+  const endB = endA.clone(); endB.position.x = -3.68;
+  const rib = mesh(box(6.9, 0.7, 0.14), M.black); rib.position.set(0, 0.45, 0);
+  batteryGroup.add(floor, sideA, sideB, endA, endB, rib);
+  [-0.95, 0.95].forEach(z => {
+    const cell = mesh(new THREE.CylinderGeometry(0.9, 0.9, 6.5, 28), cellMat); cell.rotation.z = Math.PI / 2; cell.position.set(0, 1.12, z);
+    const cap = mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.12, 20), M.metal); cap.rotation.z = Math.PI / 2; cap.position.set(3.3, 1.12, z);
+    batteryGroup.add(cell, cap);
+  });
+}
+addPart('battery', batteryGroup);
 
 /* --- the hollow printed beam: the exact geometry of Smashing_Densor.stl (180 × 16 × 13 mm, hollow) --- */
 const PIPE_STL = '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';
@@ -1289,9 +1312,13 @@ const pipeMesh = pipeGroup.children[0];
   wire(hex, () => [ptIn(servoGroup, 0.15 * k, -0.7, -1.0), ptIn(servoGroup, 0.15 * k, -0.15, -0.9), ptIn(pipeMesh, 9.6, 0.05 * k, 0.12 * k), ptIn(pipeMesh, 8.6, 0, 0.12 * k)]);
   wire(hex, () => [ptIn(pipeMesh, -8.6, 0, 0.12 * k), ptIn(pipeMesh, -9.5, -0.1, 0.12 * k), ptIn(driverGroup, 0.75, 1.0, 0.3 * k), ptIn(driverGroup, 0.75, 0.68, 0.3 * k)]);
 });
-/* motor driver to the ESP32: signal on GPIO 25, plus VIN (5 V from USB) and ground */
+/* motor driver to the ESP32: signal on GPIO 25, plus VIN (5 V from the driver's regulator) and ground */
 [['#3fae5a', 'D25', -0.3], ['#d6453d', 'VIN', 0], ['#26282c', 'GND', 0.3]].forEach(([hex, pin, z]) => {
   wire(hex, () => { const p = nanoPin(pin).add(new V3(0.08, 0, 0)); return [ptIn(driverGroup, -0.85, 0.56, z), ptIn(driverGroup, -1.4, 1.3, z), ptIn(nanoGroup, p.x, p.y + 1.0, p.z), ptIn(nanoGroup, p.x, p.y, p.z)]; });
+});
+/* battery leads: out of the holder, through a hole in the back wall, into the motor driver's power terminal */
+[['#d6453d', -0.13], ['#26282c', 0.13]].forEach(([hex, x]) => {
+  wire(hex, () => [ptIn(batteryGroup, 3.86, 1.0, 0.25 + x), ptIn(batteryGroup, 4.4, 1.05, 1.4 + x), new V3(2.7 + x, 1.0, -3.6), new V3(2.7 + x, 1.0, -2.85), ptIn(driverGroup, 0.05 + x, 1.1, -0.52), ptIn(driverGroup, 0.05 + x, 0.68, -0.52)]);
 });
 /* USB lead from the ESP32, out through the left wall and across the desk to the computer */
 wire('#2b2f36', () => [ptIn(nanoGroup, -3.45, 0.6, 0), ptIn(nanoGroup, -4.4, 0.55, -0.3), new V3(-6.2, 0.2, -1.0), new V3(-7.0, -0.35, -1.5), new V3(-7.9, -2.4, -2.6), new V3(-9.6, -5.6, -4.5), new V3(-14, -5.83, -9), new V3(-30, -5.83, -16)], 0.17, 'usb-cable');
@@ -1692,6 +1719,7 @@ const LABELS = [
   { id: 'servo', part: 'servo', obj: servoGroup, at: [0.6, -1.4, 1.1] },
   { id: 'pipe', part: 'pipe', obj: pipeGroup, at: [3.5, 0.7, 0] },
   { id: 'base', part: 'base', obj: baseCardGroup, at: [-6.0, 0, 0.5] },
+  { id: 'battery', part: 'battery', obj: batteryGroup, at: [0, 2.05, 0] },
 ];
 LABELS.forEach(l => {
   const el = document.createElement('div'); el.className = 'tag' + (l.down ? ' down' : ''); el.hidden = true;
